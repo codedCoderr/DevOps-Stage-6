@@ -1,0 +1,26 @@
+# infra/ansible/roles/deploy/tasks/main.yml
+---
+- name: Clone or update application repository (Idempotent Git checkout)
+  ansible.builtin.git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_dir }}"
+    clone: yes
+    update: yes
+    force: yes
+  register: git_pull_result
+
+- name: Create Traefik acme.json file with correct permissions (Required for ACME/LetsEncrypt)
+  ansible.builtin.file:
+    path: "{{ app_dir }}/acme.json"
+    state: touch
+    mode: "0600" # Strict permission requirement for Traefik
+    owner: root
+    group: root
+
+- name: Start/Restart all services with docker-compose (Only if repo content changed)
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}"
+    state: present
+  # The 'restarted' tag checks for changes, but docker_compose_v2 itself is idempotent
+  # However, to be extra safe and ensure services start if files change:
+  when: git_pull_result.changed or inventory_hostname is defined # Run on first deploy too

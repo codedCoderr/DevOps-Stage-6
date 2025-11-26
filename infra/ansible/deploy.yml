@@ -1,0 +1,12 @@
+# infra/ansible/deploy.yml
+---
+- name: Provision and Deploy TODO App
+  hosts: webservers
+  become: yes # Run tasks with sudo
+  vars:
+    # Important: Update this to your forked repo URL
+    repo_url: https://github.com/codedCoderr/DevOps-Stage-6.git
+    app_dir: /opt/todo-app
+  roles:
+    - dependencies
+    - deploy

@@ -1,0 +1,50 @@
+# .github/workflows/apply_approved.yml
+name: ✅ Infra Apply (Manual Approval)
+
+on:
+  # This workflow must ONLY be triggered manually (workflow_dispatch)
+  # after drift detection requires human review.
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual approval and applying infrastructure changes."
+        required: true
+        default: "Approved after drift detection review."
+
+jobs:
+  apply_approved_changes:
+    runs-on: ubuntu-latest
+    environment:
+      name: production # Use an environment for better control/visibility
+      url: https://example.com # Optional: Add a valid URL for the environment
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. Setup Terraform and AWS credentials
+      - name: Setup AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_hostname: false
+
+      # 2. Initialize Terraform (MUST use explicit backend config)
+      - name: Terraform Init
+        run: terraform init -backend-config="bucket=my-todo-app-tf-state" -backend-config="key=todo-app/terraform.tfstate" -backend-config="region=us-east-1"
+        working-directory: infra/terraform
+
+      # 3. Apply the approved changes
+      - name: Terraform Apply
+        run: |
+          echo "Applying approved infrastructure changes with reason: ${{ github.event.inputs.reason }}"
+          # Note: When running manually, the user must ensure no changes have occurred 
+          # since the last plan. Running without the -out=tfplan.out file forces a fresh plan.
+          terraform apply -auto-approve
+        working-directory: infra/terraform

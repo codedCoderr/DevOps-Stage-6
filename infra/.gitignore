@@ -1,0 +1,4 @@
+inventory.ini
+terraform/.terraform.lock.hcl
+terraform/errored.tfstate
+terraform/.terraform/*

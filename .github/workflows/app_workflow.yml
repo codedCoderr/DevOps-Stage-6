@@ -1,0 +1,29 @@
+name: 🚀 Application Deployment
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "auth/**"
+      - "todos/**"
+      - "users/**"
+      - "log-processor/**"
+      - "docker-compose.yml"
+
+jobs:
+  deploy_app:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout code
+      - uses: actions/checkout@v3
+
+      # 2. **Ensure server exists/is up (Prerequisite check)**
+      # This step would typically use a tool/script to check the EC2 instance state
+      # For a simple example, assume the infrastructure is already running.
+      # 3. Run the Ansible deploy role
+      - name: Run Ansible Deploy Playbook
+        # You must have SSH access to the provisioned server from the runner
+        run: |
+          cd infra/terraform
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini ../ansible/deploy.yml
+        # Note: This requires the inventory file to exist and SSH keys to be set up.

@@ -1,0 +1,85 @@
+# .github/workflows/infra_workflow.yml
+name: ⚙️ Infrastructure Management (Drift Detection)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Trigger workflow if any infrastructure or configuration files change
+      - "infra/terraform/**"
+      - "infra/ansible/**"
+
+jobs:
+  plan_and_detect_drift:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Setup AWS Credentials
+      # NOTE: Replace 'us-east-1' and use your actual secret names.
+      - name: Setup AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_hostname: false
+
+      # 2. Terraform Initialization
+      - name: Terraform Init
+        # Use the same backend configuration as in apply_approved.yml
+        run: terraform init -backend-config="bucket=my-todo-app-tf-state" -backend-config="key=todo-app/terraform.tfstate" -backend-config="region=us-east-1"
+        working-directory: infra/terraform
+
+      # 3. Plan and Detect Drift
+      - name: Terraform Plan & Drift Detection
+        id: plan
+        working-directory: infra/terraform
+        run: |
+          # Use -detailed-exitcode: 0=no changes, 1=error, 2=changes/drift
+          terraform plan -detailed-exitcode -out=tfplan.out 
+          PLAN_EXIT_CODE=$?
+
+          echo "Plan exit code: $PLAN_EXIT_CODE"
+          echo "exit_code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # If exit code is 2 (drift), we continue to send email but skip apply.
+          # If exit code is 1 (error), we fail the job.
+          if [ "$PLAN_EXIT_CODE" -eq 1 ]; then
+            exit 1
+          fi
+
+      # 4. Handle Drift Detection (Exit Code 2)
+      - name: ✉️ Drift Detected - Email Alert & Wait for Approval
+        if: steps.plan.outputs.exit_code == '2'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com # Example using Gmail SMTP
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          from: your-email@example.com # Replace with a valid sender email address
+          subject: 🚨 INFRASTRUCTURE DRIFT DETECTED - Manual Review Required
+          to: your-devops-email@example.com
+          body: |
+            Drift was detected in the Todo App infrastructure by the CI/CD pipeline.
+            Please review the plan artifacts and run the 'Infra Apply (Manual Approval)' workflow to proceed.
+            Commit: ${{ github.sha }}
+
+          # IMPORTANT: We stop here. The application must wait for manual approval
+          # via the 'apply_approved.yml' workflow (workflow_dispatch).
+
+      # 5. Handle No Drift (Exit Code 0)
+      - name: ✅ Apply Changes (Auto-Approve if No Drift)
+        if: steps.plan.outputs.exit_code == '0'
+        run: |
+          echo "No drift detected. Applying changes automatically."
+          # Apply using the output file created in the plan step
+          terraform apply -auto-approve tfplan.out
+        working-directory: infra/terraform

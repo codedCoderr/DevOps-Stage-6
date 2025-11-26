@@ -1,0 +1,41 @@
+# infra/ansible/roles/dependencies/tasks/main.yml
+---
+- name: Install required packages (git, utility packages)
+  ansible.builtin.apt:
+    name:
+      - git
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+    state: present
+    update_cache: yes
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+    state: present
+
+- name: Install Docker and required components
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+
+- name: Install Docker Compose
+  ansible.builtin.get_url:
+    url: https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-linux-x86_64 # Check for latest version
+    dest: /usr/local/bin/docker-compose
+    mode: "a+x"
+
+- name: Ensure 'web' Docker network exists (Idempotent)
+  community.docker.docker_network:
+    name: web
+    state: present

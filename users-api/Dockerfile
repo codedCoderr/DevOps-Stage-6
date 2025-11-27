@@ -1,7 +1,18 @@
-# users/Dockerfile
-FROM openjdk:17-jre-slim-bullseye
+FROM openjdk:17-jdk as builder
+
 WORKDIR /app
-# Assuming the JAR file is built outside the container and named app.jar
-COPY target/app.jar /app/app.jar
+
+COPY pom.xml .
+COPY src /app/src
+
+RUN ./mvnw package -DskipTests
+
+FROM openjdk:17-jre-slim
+
+WORKDIR /app
+
+COPY --from=builder /app/target/*.jar /app/app.jar
+
 EXPOSE 8080
+
 CMD ["java", "-jar", "app.jar"]

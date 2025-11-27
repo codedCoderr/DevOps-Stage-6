@@ -18,9 +18,9 @@
     group: root
 
 - name: Start/Restart all services with docker-compose (Only if repo content changed)
+  become: yes
+  become_user: ubuntu
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
     state: present
-  # The 'restarted' tag checks for changes, but docker_compose_v2 itself is idempotent
-  # However, to be extra safe and ensure services start if files change:
-  when: git_pull_result.changed or inventory_hostname is defined # Run on first deploy too
+  when: git_pull_result.changed or inventory_hostname is defined

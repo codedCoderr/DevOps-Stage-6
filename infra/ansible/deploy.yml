@@ -1,4 +1,3 @@
-# infra/ansible/deploy.yml
 ---
 - name: Provision and Deploy TODO App
   hosts: webservers
@@ -7,6 +6,51 @@
     # Important: Update this to your forked repo URL
     repo_url: https://github.com/codedCoderr/DevOps-Stage-6.git
     app_dir: /opt/todo-app
+
+  pre_tasks:
+    - name: Install disk resizing tools (growpart) on Ubuntu/Debian
+      ansible.builtin.apt:
+        name: cloud-guest-utils
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install disk resizing tools (growpart) on RedHat/Amazon Linux
+      ansible.builtin.yum:
+        name: cloud-utils-growpart
+        state: present
+      when: ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
+
+    # --- Disk Expansion Logic (Fixing 'No space left on device' issue) ---
+
+    - name: Get root device and partition number (e.g., /dev/xvda and 1)
+      ansible.builtin.shell: |
+        ROOT_PART=$(df / --output=source | tail -1)
+        MAJOR_DEVICE=$(echo $ROOT_PART | sed 's/[0-9]*$//')
+        PARTITION_NUMBER=$(echo $ROOT_PART | grep -o '[0-9]*$')
+        echo "MAJOR_DEVICE=$MAJOR_DEVICE"
+        echo "PARTITION_NUMBER=$PARTITION_NUMBER"
+      register: root_info
+      changed_when: false
+
+    - name: Expand root partition using growpart (makes it use the full EBS volume size)
+      ansible.builtin.command: "growpart {{ root_info.stdout | regex_search('MAJOR_DEVICE=(.*)', '\\1') | first }} {{ root_info.stdout | regex_search('PARTITION_NUMBER=(.*)', '\\1') | first }}"
+
+    - name: Get root filesystem type (e.g., ext4, xfs)
+      ansible.builtin.shell: "df -T / | tail -1 | awk '{print $2}'"
+      register: fstype
+      changed_when: false
+
+    - name: Resize ext4/ext3 filesystem to fill the expanded partition
+      ansible.builtin.command: "resize2fs {{ root_info.stdout | regex_search('MAJOR_DEVICE=(.*)', '\\1') | first }}{{ root_info.stdout | regex_search('PARTITION_NUMBER=(.*)', '\\1') | first }}"
+      when: fstype.stdout in ['ext4', 'ext3']
+
+    - name: Resize xfs filesystem to fill the expanded partition
+      ansible.builtin.command: "xfs_growfs /"
+      when: fstype.stdout == 'xfs'
+
+    # --- End of Disk Expansion Logic ---
+
   roles:
     - dependencies
     - deploy

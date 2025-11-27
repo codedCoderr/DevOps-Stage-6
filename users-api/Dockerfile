@@ -3,9 +3,14 @@ FROM eclipse-temurin:17-jdk-jammy as builder
 
 WORKDIR /app
 
-# Copy Maven files
+# Copy Maven files, including the wrapper script and configuration directory
 COPY pom.xml .
+COPY mvnw .
+COPY .mvn .mvn
 COPY src /app/src
+
+# Ensure the Maven wrapper script has executable permissions
+RUN chmod +x mvnw
 
 # Run Maven build command, skipping tests
 RUN ./mvnw package -DskipTests

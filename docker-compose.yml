@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # --- Traefik Reverse Proxy & Load Balancer ---
   traefik:

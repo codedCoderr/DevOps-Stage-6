@@ -1,4 +1,4 @@
-FROM openjdk:17-jdk as builder
+FROM openjdk:17-jdk-slim-buster as builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ COPY src /app/src
 
 RUN ./mvnw package -DskipTests
 
-FROM openjdk:17-jre
+FROM openjdk:17-jre-buster
 
 WORKDIR /app
 

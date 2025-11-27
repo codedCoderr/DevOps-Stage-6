@@ -22,27 +22,20 @@
         state: present
       when: ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
 
-    # --- Disk Expansion Logic (Fixed Partition Lookup and Reboot) ---
+    # --- Disk Expansion Logic (Robust Fact-Based Device Detection) ---
 
-    # 2. GET DEVICE INFO
-    # Determine the real device path (e.g., /dev/xvda1) used for the root filesystem.
-    - name: Get real partition path (resolving /dev/root alias)
-      ansible.builtin.command: readlink -f /dev/root
-      register: readlink_result
-
-    - name: Set real_partition_path fact
+    # 2. GET DEVICE INFO (REVISED: Using Ansible facts to find the actual device like /dev/vda1 or /dev/nvme0n1p1)
+    - name: Set facts for root partition and disk device based on Ansible mounts
       ansible.builtin.set_fact:
-        real_partition_path: "{{ readlink_result.stdout }}"
-
-    - name: Set disk_device and partition_num facts (Robustly handle /dev/root ambiguity)
-      ansible.builtin.set_fact:
-        # If readlink returned '/dev/root', we default to standard EC2 device /dev/xvda and partition 1.
-        # Otherwise, we use regex to extract the device and partition number.
-        disk_device: "{{ '/dev/xvda' if real_partition_path == '/dev/root' else real_partition_path | regex_replace('[0-9]+$', '') }}"
-        partition_num: "{{ '1' if real_partition_path == '/dev/root' else real_partition_path | regex_replace('.*[^0-9]([0-9]+)$', '\\1') }}"
+        # Get the full partition path, e.g., /dev/vda1
+        root_partition_path: "{{ ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='device') | first }}"
+        # Get the disk device name by stripping the partition number, e.g., /dev/vda
+        disk_device: "{{ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='device') | first) | regex_replace('[0-9]+$', '') }}"
+        # Get the partition number, e.g., 1
+        partition_num: "{{ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='device') | first) | regex_replace('^.*[^0-9]([0-9]+)$', '\\1') }}"
 
     # 3. EXPAND PARTITION
-    - name: Expand root partition using growpart (e.g., growpart /dev/xvda 1)
+    - name: Expand root partition using growpart (e.g., growpart /dev/vda 1)
       ansible.builtin.command: "growpart {{ disk_device }} {{ partition_num }}"
       # Ignore errors because the command fails with a non-zero exit code if partition is already expanded.
       ignore_errors: true
@@ -66,7 +59,7 @@
         fstype: "{{ ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='fstype') | first }}"
 
     - name: Resize ext4/ext3 filesystem to fill the expanded partition
-      ansible.builtin.command: "resize2fs {{ real_partition_path }}"
+      ansible.builtin.command: "resize2fs {{ root_partition_path }}"
       when: fstype in ['ext4', 'ext3']
 
     - name: Resize xfs filesystem to fill the expanded partition

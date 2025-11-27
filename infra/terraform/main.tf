@@ -20,7 +20,7 @@ terraform {
 # 1. Provision the Cloud Server (e.g., an EC2 instance)
 resource "aws_instance" "todo_server" {
   ami            = "ami-0f5fcdfbd140e4ab7" # Find a suitable Ubuntu/Amazon Linux 2 AMI
-  instance_type  = "t3.medium"
+  instance_type  = "c7i-flex.large"
   key_name       = "access"
   
   subnet_id = "subnet-0517b2602f8db9eca"
@@ -28,7 +28,7 @@ resource "aws_instance" "todo_server" {
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
   
   root_block_device {
-    volume_size = 20 # Increase to 20GB
+    volume_size = 50 # Increase to 20GB
     volume_type = "gp3"
     delete_on_termination = true
   }

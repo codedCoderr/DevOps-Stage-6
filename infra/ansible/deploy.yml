@@ -8,65 +8,58 @@
     app_dir: /opt/todo-app
 
   pre_tasks:
-    # 1. INSTALL DISK UTILS (Required for 'growpart' command)
-    - name: Install cloud-guest-utils (contains growpart) on Ubuntu/Debian
+    - name: Install cloud-guest-utils on Ubuntu/Debian
       ansible.builtin.apt:
         name: cloud-guest-utils
         state: present
         update_cache: yes
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == 'Debian'
 
     - name: Install cloud-utils-growpart on RedHat/Amazon Linux
       ansible.builtin.yum:
         name: cloud-utils-growpart
         state: present
-      when: ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
+      when: ansible_facts['os_family'] in ['RedHat','Amazon']
 
-    # --- Disk Expansion Logic (Robust Fact-Based Device Detection) ---
+    - name: Detect root disk
+      ansible.builtin.command: lsblk -no PKNAME $(df / | tail -1 | awk '{print $1}')
+      register: root_disk_cmd
+      changed_when: false
 
-    # 2. GET DEVICE INFO (REVISED: Using Ansible facts to find the actual device like /dev/vda1 or /dev/nvme0n1p1)
-    - name: Set facts for root partition and disk device based on Ansible mounts
+    - name: Set disk device and partition number
       ansible.builtin.set_fact:
-        # Get the full partition path, e.g., /dev/vda1
-        root_partition_path: "{{ ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='device') | first }}"
-        # Get the disk device name by stripping the partition number, e.g., /dev/vda
-        disk_device: "{{ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='device') | first) | regex_replace('[0-9]+$', '') }}"
-        # Get the partition number, e.g., 1
-        partition_num: "{{ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='device') | first) | regex_replace('^.*[^0-9]([0-9]+)$', '\\1') }}"
+        disk_device: "/dev/{{ root_disk_cmd.stdout }}"
+        partition_num: 1
 
-    # 3. EXPAND PARTITION
-    - name: Expand root partition using growpart (e.g., growpart /dev/vda 1)
+    - name: Expand root partition using growpart
       ansible.builtin.command: "growpart {{ disk_device }} {{ partition_num }}"
-      # Ignore errors because the command fails with a non-zero exit code if partition is already expanded.
-      ignore_errors: true
       register: growpart_result
+      ignore_errors: true
 
-    # 4. REBOOT AND WAIT (Crucial step to ensure kernel recognizes the new partition size)
-    - name: Reboot the server to finalize partition size change (if growpart reported a change)
+    - name: Reboot if partition changed
       ansible.builtin.reboot:
         reboot_timeout: 300
       when: growpart_result.rc == 0
 
-    - name: Wait for the server to be ready after reboot
+    - name: Wait for server to come back
       ansible.builtin.wait_for_connection:
         timeout: 300
         delay: 5
       when: growpart_result.rc == 0
 
-    # 5. EXPAND FILESYSTEM (Must happen after partition expansion and potential reboot)
     - name: Get root filesystem type
       ansible.builtin.set_fact:
-        fstype: "{{ ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='fstype') | first }}"
+        root_fstype: "{{ ansible_facts['mounts'] | selectattr('mount','equalto','/') | map(attribute='fstype') | first }}"
 
-    - name: Resize ext4/ext3 filesystem to fill the expanded partition
-      ansible.builtin.command: "resize2fs {{ root_partition_path }}"
-      when: fstype in ['ext4', 'ext3']
+    - name: Resize ext4/ext3 filesystem
+      ansible.builtin.command: "resize2fs $(df / | tail -1 | awk '{print $1}')"
+      when: root_fstype in ['ext4','ext3']
 
-    - name: Resize xfs filesystem to fill the expanded partition
+    - name: Resize xfs filesystem
       ansible.builtin.command: "xfs_growfs /"
-      when: fstype == 'xfs'
+      when: root_fstype == 'xfs'
 
-    # --- End of Disk Expansion Logic ---
+      # --- End of Disk Expansion Logic ---
 
   roles:
     - dependencies

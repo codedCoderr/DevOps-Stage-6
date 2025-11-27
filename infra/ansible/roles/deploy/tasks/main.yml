@@ -26,7 +26,7 @@
 
 - name: Start/Restart all services with docker-compose (Only if repo content changed)
   become: yes
-  become_user: ubuntu
+  become_user: root
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
     state: present

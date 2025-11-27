@@ -18,7 +18,6 @@
 
 - name: Clean up unused Docker resources (Freeing disk space to resolve 'no space left' error)
   become: yes
-  become_user: ubuntu
   community.docker.docker_prune:
     containers: yes
     images: yes

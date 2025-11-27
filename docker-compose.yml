@@ -15,7 +15,7 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       # Enable ACME (Let's Encrypt) for SSL/TLS
-      - --certificatesresolvers.letsencrypt.acme.email=your-email@example.com
+      - --certificatesresolvers.letsencrypt.acme.email=codedcoderrr@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=acme.json
       # Use the HTTP challenge (requires port 80 open)
       - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
@@ -37,7 +37,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Route to the root domain
-      - "traefik.http.routers.frontend.rule=Host(`your-domain.com`)"
+      - "traefik.http.routers.frontend.rule=Host(`coded.chickenkiller.com`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
@@ -50,7 +50,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Route to /api/auth
-      - "traefik.http.routers.auth.rule=Host(`your-domain.com`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth.rule=Host(`coded.chickenkiller.com`) && PathPrefix(`/api/auth`)"
       - "traefik.http.routers.auth.entrypoints=websecure"
       - "traefik.http.routers.auth.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth.loadbalancer.server.port=8080"
@@ -66,7 +66,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Route to /api/todos
-      - "traefik.http.routers.todos.rule=Host(`your-domain.com`) && PathPrefix(`/api/todos`)"
+      - "traefik.http.routers.todos.rule=Host(`coded.chickenkiller.com`) && PathPrefix(`/api/todos`)"
       - "traefik.http.routers.todos.entrypoints=websecure"
       - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
       - "traefik.http.services.todos.loadbalancer.server.port=3000"
@@ -81,7 +81,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Route to /api/users
-      - "traefik.http.routers.users.rule=Host(`your-domain.com`) && PathPrefix(`/api/users`)"
+      - "traefik.http.routers.users.rule=Host(`coded.chickenkiller.com`) && PathPrefix(`/api/users`)"
       - "traefik.http.routers.users.entrypoints=websecure"
       - "traefik.http.routers.users.tls.certresolver=letsencrypt"
       - "traefik.http.services.users.loadbalancer.server.port=8080"

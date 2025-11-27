@@ -64,9 +64,9 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          from: your-email@example.com # Replace with a valid sender email address
+          from: codedcoderrr@gmail.com # Replace with a valid sender email address
           subject: 🚨 INFRASTRUCTURE DRIFT DETECTED - Manual Review Required
-          to: your-devops-email@example.com
+          to: codedcoderrr@gmail.com
           body: |
             Drift was detected in the Todo App infrastructure by the CI/CD pipeline.
             Please review the plan artifacts and run the 'Infra Apply (Manual Approval)' workflow to proceed.

@@ -3,63 +3,24 @@
   hosts: webservers
   become: yes # Run tasks with sudo
   vars:
-    # Important: Update this to your forked repo URL
+    # Update this to your forked repo URL
     repo_url: https://github.com/codedCoderr/DevOps-Stage-6.git
     app_dir: /opt/todo-app
 
   pre_tasks:
-    - name: Install cloud-guest-utils on Ubuntu/Debian
+    # Install necessary disk utils (optional, in case future growpart operations are needed)
+    - name: Install cloud-guest-utils (contains growpart) on Ubuntu/Debian
       ansible.builtin.apt:
         name: cloud-guest-utils
         state: present
         update_cache: yes
-      when: ansible_facts['os_family'] == 'Debian'
+      when: ansible_os_family == "Debian"
 
     - name: Install cloud-utils-growpart on RedHat/Amazon Linux
       ansible.builtin.yum:
         name: cloud-utils-growpart
         state: present
-      when: ansible_facts['os_family'] in ['RedHat','Amazon']
-
-    - name: Detect root disk
-      ansible.builtin.command: lsblk -no PKNAME $(df / | tail -1 | awk '{print $1}')
-      register: root_disk_cmd
-      changed_when: false
-
-    - name: Set disk device and partition number
-      ansible.builtin.set_fact:
-        disk_device: "/dev/{{ root_disk_cmd.stdout }}"
-        partition_num: 1
-
-    - name: Expand root partition using growpart
-      ansible.builtin.command: "growpart {{ disk_device }} {{ partition_num }}"
-      register: growpart_result
-      ignore_errors: true
-
-    - name: Reboot if partition changed
-      ansible.builtin.reboot:
-        reboot_timeout: 300
-      when: growpart_result.rc == 0
-
-    - name: Wait for server to come back
-      ansible.builtin.wait_for_connection:
-        timeout: 300
-        delay: 5
-      when: growpart_result.rc == 0
-
-    - name: Get root filesystem type
-      ansible.builtin.set_fact:
-        root_fstype: "{{ ansible_facts['mounts'] | selectattr('mount','equalto','/') | map(attribute='fstype') | first }}"
-
-    - name: Resize ext4/ext3 filesystem
-      ansible.builtin.command: "resize2fs $(df / | tail -1 | awk '{print $1}')"
-      when: root_fstype in ['ext4','ext3']
-
-    - name: Resize xfs filesystem
-      ansible.builtin.command: "xfs_growfs /"
-      when: root_fstype == 'xfs'
-
-      # --- End of Disk Expansion Logic ---
+      when: ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
 
   roles:
     - dependencies

@@ -16,7 +16,7 @@
     owner: root
     group: root
 
-- name: Clean up unused Docker resources (Freeing disk space to resolve 'no space left' error)
+- name: Clean up unused Docker resources (Freeing disk space)
   become: yes
   community.docker.docker_prune:
     containers: yes
@@ -26,7 +26,7 @@
 
 - name: Start/Restart all services with docker-compose (Only if repo content changed)
   become: yes
-  become_user: root
+  become_user: ubuntu
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
     state: present

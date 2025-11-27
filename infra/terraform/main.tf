@@ -20,7 +20,7 @@ terraform {
 # 1. Provision the Cloud Server (e.g., an EC2 instance)
 resource "aws_instance" "todo_server" {
   ami            = "ami-0f5fcdfbd140e4ab7" # Find a suitable Ubuntu/Amazon Linux 2 AMI
-  instance_type  = "t3.small"
+  instance_type  = "t3.medium"
   key_name       = "access"
   
   subnet_id = "subnet-0517b2602f8db9eca"
@@ -32,7 +32,7 @@ resource "aws_instance" "todo_server" {
     volume_type = "gp3"
     delete_on_termination = true
   }
-  
+
   # 4. Remote commands (e.g., waiting for cloud-init)
   provisioner "remote-exec" {
     inline = [

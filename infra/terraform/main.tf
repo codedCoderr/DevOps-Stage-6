@@ -26,7 +26,12 @@ resource "aws_instance" "todo_server" {
   subnet_id = "subnet-0517b2602f8db9eca"
 
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
-
+  
+  root_block_device {
+    volume_size = 20 # Increase to 20GB
+    volume_type = "gp2"
+    delete_on_termination = true
+  }
   # 4. Remote commands (e.g., waiting for cloud-init)
   provisioner "remote-exec" {
     inline = [

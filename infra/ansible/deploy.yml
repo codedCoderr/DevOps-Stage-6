@@ -8,46 +8,59 @@
     app_dir: /opt/todo-app
 
   pre_tasks:
-    - name: Install disk resizing tools (growpart) on Ubuntu/Debian
+    # 1. INSTALL DISK UTILS
+    - name: Install cloud-guest-utils (contains growpart) on Ubuntu/Debian
       ansible.builtin.apt:
         name: cloud-guest-utils
         state: present
         update_cache: yes
       when: ansible_os_family == "Debian"
 
-    - name: Install disk resizing tools (growpart) on RedHat/Amazon Linux
+    - name: Install cloud-utils-growpart on RedHat/Amazon Linux
       ansible.builtin.yum:
         name: cloud-utils-growpart
         state: present
       when: ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
 
-    # --- Disk Expansion Logic (Fixing 'No space left on device' issue) ---
+    # --- Disk Expansion Logic (Fixing Jinja error with two-step command) ---
 
-    - name: Get root device and partition number (e.g., /dev/xvda and 1)
-      ansible.builtin.shell: |
-        ROOT_PART=$(df / --output=source | tail -1)
-        MAJOR_DEVICE=$(echo $ROOT_PART | sed 's/[0-9]*$//')
-        PARTITION_NUMBER=$(echo $ROOT_PART | grep -o '[0-9]*$')
-        echo "MAJOR_DEVICE=$MAJOR_DEVICE"
-        echo "PARTITION_NUMBER=$PARTITION_NUMBER"
-      register: root_info
-      changed_when: false
+    # 2. GET DEVICE INFO (Robustly find disk and partition number)
+    # Task 2a: Use the command module to reliably get the real path (e.g., /dev/xvda1)
+    - name: Get real partition path (resolving /dev/root alias)
+      ansible.builtin.command: readlink -f /dev/root
+      register: readlink_result
 
-    - name: Expand root partition using growpart (makes it use the full EBS volume size)
-      ansible.builtin.command: "growpart {{ root_info.stdout | regex_search('MAJOR_DEVICE=(.*)', '\\1') | first }} {{ root_info.stdout | regex_search('PARTITION_NUMBER=(.*)', '\\1') | first }}"
+    - name: Set real_partition_path fact
+      ansible.builtin.set_fact:
+        # The actual path (e.g., /dev/xvda1) is in the stdout of the command
+        real_partition_path: "{{ readlink_result.stdout }}"
 
-    - name: Get root filesystem type (e.g., ext4, xfs)
-      ansible.builtin.shell: "df -T / | tail -1 | awk '{print $2}'"
-      register: fstype
-      changed_when: false
+    - name: Set disk_device and partition_num facts
+      ansible.builtin.set_fact:
+        # disk_device: Path minus the trailing digit (e.g., /dev/xvda from /dev/xvda1)
+        disk_device: "{{ real_partition_path | regex_replace('[0-9]+$', '') }}"
+        # partition_num: The trailing digit (e.g., 1 from /dev/xvda1)
+        partition_num: "{{ real_partition_path | regex_replace('.*[^0-9]([0-9]+)$', '\\1') }}"
+
+    # 3. EXPAND PARTITION
+    - name: Expand root partition using growpart (uses {{ disk_device }} and {{ partition_num }})
+      ansible.builtin.command: "growpart {{ disk_device }} {{ partition_num }}"
+      # The growpart command will only fail if it's already expanded or the arguments are wrong.
+      # If it's already expanded, it exits non-zero, so we use ignore_errors.
+      ignore_errors: true
+
+    # 4. EXPAND FILESYSTEM
+    - name: Get root filesystem type
+      ansible.builtin.set_fact:
+        fstype: "{{ ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | map(attribute='fstype') | first }}"
 
     - name: Resize ext4/ext3 filesystem to fill the expanded partition
-      ansible.builtin.command: "resize2fs {{ root_info.stdout | regex_search('MAJOR_DEVICE=(.*)', '\\1') | first }}{{ root_info.stdout | regex_search('PARTITION_NUMBER=(.*)', '\\1') | first }}"
-      when: fstype.stdout in ['ext4', 'ext3']
+      ansible.builtin.command: "resize2fs {{ real_partition_path }}"
+      when: fstype in ['ext4', 'ext3']
 
     - name: Resize xfs filesystem to fill the expanded partition
       ansible.builtin.command: "xfs_growfs /"
-      when: fstype.stdout == 'xfs'
+      when: fstype == 'xfs'
 
     # --- End of Disk Expansion Logic ---
 

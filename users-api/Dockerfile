@@ -7,7 +7,7 @@ COPY src /app/src
 
 RUN ./mvnw package -DskipTests
 
-FROM openjdk:17-jre-slim
+FROM openjdk:17-jre
 
 WORKDIR /app
 

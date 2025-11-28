@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # --- Traefik Reverse Proxy ---
   traefik:
@@ -8,77 +10,86 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --certificatesresolvers.letsencrypt.acme.email=codedcoderrr@gmail.com
-      - --certificatesresolvers.letsencrypt.acme.storage=acme.json
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
       - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --api.dashboard=true
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./acme.json:/acme.json
+      - ./acme/acme.json:/acme/acme.json
     networks:
       - web
+    labels:
+      - "traefik.enable=true"
 
-  # --- Application Services (use prebuilt images!) ---
+      # Required for HTTP-01 challenge to succeed
+      - "traefik.http.routers.acme.rule=Host(`codedcoder.accesscam.org`)"
+      - "traefik.http.routers.acme.entrypoints=web"
+      - "traefik.http.routers.acme.service=noop@internal"
 
+  # --- Frontend ---
   frontend:
     image: codedcoderrr/frontend:latest
     container_name: frontend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`coded.chickenkiller.com`)"
+      - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
     networks:
       - web
 
+  # --- Auth API ---
   auth:
     image: codedcoderrr/auth:latest
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=Host(`coded.chickenkiller.com`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/api/auth`)"
       - "traefik.http.routers.auth.entrypoints=websecure"
       - "traefik.http.routers.auth.tls.certresolver=letsencrypt"
-      - "traefik.http.services.auth.loadbalancer.server.port=8080"
+      - "traefik.http.services.auth.loadbalancer.server.port=8081"
       - "traefik.http.middlewares.auth-stripprefix.stripprefix.prefixes=/api/auth"
       - "traefik.http.routers.auth.middlewares=auth-stripprefix@docker"
     networks:
       - web
 
+  # --- Todos API ---
   todos:
     image: codedcoderrr/todos:latest
     container_name: todos-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.todos.rule=Host(`coded.chickenkiller.com`) && PathPrefix(`/api/todos`)"
+      - "traefik.http.routers.todos.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/api/todos`)"
       - "traefik.http.routers.todos.entrypoints=websecure"
       - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
-      - "traefik.http.services.todos.loadbalancer.server.port=3000"
+      - "traefik.http.services.todos.loadbalancer.server.port=8082"
       - "traefik.http.middlewares.todos-stripprefix.stripprefix.prefixes=/api/todos"
       - "traefik.http.routers.todos.middlewares=todos-stripprefix@docker"
     networks:
       - web
 
+  # --- Users API ---
   users:
     image: codedcoderrr/users:latest
     container_name: users-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.users.rule=Host(`coded.chickenkiller.com`) && PathPrefix(`/api/users`)"
+      - "traefik.http.routers.users.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/api/users`)"
       - "traefik.http.routers.users.entrypoints=websecure"
       - "traefik.http.routers.users.tls.certresolver=letsencrypt"
-      - "traefik.http.services.users.loadbalancer.server.port=8080"
+      - "traefik.http.services.users.loadbalancer.server.port=8083"
       - "traefik.http.middlewares.users-stripprefix.stripprefix.prefixes=/api/users"
       - "traefik.http.routers.users.middlewares=users-stripprefix@docker"
     networks:
       - web
 
+  # --- Redis ---
   redis:
     image: redis:6-alpine
     container_name: redis-queue
@@ -87,6 +98,7 @@ services:
     networks:
       - web
 
+  # --- Log Message Processor ---
   log-processor:
     image: codedcoderrr/log-message-processor:latest
     container_name: log-message-processor
@@ -95,13 +107,14 @@ services:
     networks:
       - web
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=redis-queue
       - REDIS_PORT=6379
-      - REDIS_CHANNEL=log_messages
+      - REDIS_CHANNEL=log_channel
 
 networks:
   web:
     external: true
+    name: web
 
 volumes:
   redis-data:

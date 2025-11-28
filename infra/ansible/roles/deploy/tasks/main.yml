@@ -24,7 +24,7 @@
     containers: yes
     images: yes
     volumes: yes
-    networks: yes
+    #networks: yes
 
 # 4. Pull pre-built Docker images
 - name: Pull pre-built Docker images for all services

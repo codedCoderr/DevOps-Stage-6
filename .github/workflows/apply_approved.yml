@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production # Use an environment for better control/visibility
-      url: https://coded.chickenkiller.com/ # Optional: Add a valid URL for the environment
+      url: https://codedcoder.accesscam.org/ # Optional: Add a valid URL for the environment
 
     steps:
       - name: Checkout code

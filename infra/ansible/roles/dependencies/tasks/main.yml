@@ -36,6 +36,7 @@
     mode: "a+x"
 
 - name: Ensure 'web' Docker network exists (Idempotent)
+  become: yes
   community.docker.docker_network:
     name: web
     state: present

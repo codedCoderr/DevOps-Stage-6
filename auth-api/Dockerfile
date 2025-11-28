@@ -1,6 +1,6 @@
 # auth/Dockerfile
 # Stage 1: Build
-FROM golang:1.21 as build
+FROM golang:1.21 AS build
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

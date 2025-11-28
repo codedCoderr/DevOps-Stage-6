@@ -1,15 +1,15 @@
-# log-processor/Dockerfile
-# Use a full Python image to ensure all necessary build dependencies are available
-FROM python:3.11
+FROM python:3.10-slim-bookworm
 
 WORKDIR /app
 
-# Install dependencies first
+# Install pip and essential build tools
+RUN apt-get update && apt-get install -y python3-pip build-essential gcc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
 COPY . .
 
-# Adjust if your main script is named differently, but typically it's main.py
 CMD ["python", "main.py"]

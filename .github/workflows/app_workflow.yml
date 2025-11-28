@@ -4,10 +4,10 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
-      - "auth/**"
-      - "todos/**"
-      - "users/**"
-      - "log-processor/**"
+      - "auth-api/**"
+      - "todos-api/**"
+      - "users-api/**"
+      - "log-message-processor/**"
       - "docker-compose.yml"
 
 jobs:
@@ -25,5 +25,5 @@ jobs:
         # You must have SSH access to the provisioned server from the runner
         run: |
           cd infra/terraform
-          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini ../ansible/deploy.yml
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml
         # Note: This requires the inventory file to exist and SSH keys to be set up.

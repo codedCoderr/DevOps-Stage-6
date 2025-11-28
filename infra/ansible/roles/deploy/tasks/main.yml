@@ -1,14 +1,15 @@
 ---
-- name: Clone or update application repository (Idempotent Git checkout)
+# 1. Clone/update the repository (optional, needed only for docker-compose.yml or configs)
+- name: Clone or update application repository
   ansible.builtin.git:
     repo: "{{ repo_url }}"
     dest: "{{ app_dir }}"
     clone: yes
     update: yes
     force: yes
-  register: git_pull_result
 
-- name: Create Traefik acme.json file with correct permissions (Required for ACME/LetsEncrypt)
+# 2. Ensure acme.json exists for Traefik
+- name: Create Traefik acme.json file with correct permissions
   ansible.builtin.file:
     path: "{{ app_dir }}/acme.json"
     state: touch
@@ -16,7 +17,8 @@
     owner: root
     group: root
 
-- name: Clean up unused Docker resources (Freeing disk space)
+# 3. Clean up unused Docker resources
+- name: Clean up unused Docker resources
   become: yes
   community.docker.docker_prune:
     containers: yes
@@ -24,9 +26,24 @@
     volumes: yes
     networks: yes
 
-- name: Start/Restart all services with docker-compose (Only if repo content changed)
-  become: yes # run as root to avoid docker.sock permission issues
+# 4. Pull pre-built Docker images
+- name: Pull pre-built Docker images for all services
+  become: yes
+  community.docker.docker_image:
+    name: "{{ item }}"
+    source: pull
+  loop:
+    - codedcoderrr/frontend:latest
+    - codedcoderrr/auth:latest
+    - codedcoderrr/todos:latest
+    - codedcoderrr/users:latest
+    - codedcoderrr/log-message-processor:latest
+
+# 5. Start/Restart services using docker-compose
+- name: Start/Restart all services with docker-compose
+  become: yes
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
     state: present
-  when: git_pull_result.changed or inventory_hostname is defined
+    pull: missing # Pull from registry if not present
+    build: never # NEVER build locally

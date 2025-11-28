@@ -112,11 +112,6 @@ resource "null_resource" "ansible_run_trigger" {
 
   # This provisioner executes the Ansible command only when dependencies are met.
   provisioner "local-exec" {
-    # Set working directory to the module path (/infra/terraform/)
-    working_dir = path.module 
-    
-    # Use relative paths (../inventory.ini and ../ansible/deploy.yml) 
-    # to access files in the parent directory (/infra/)
     command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml"
   }
 }

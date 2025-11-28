@@ -1,29 +1,30 @@
-# --- Stage 1: Builder (Using stable Eclipse Temurin JDK) ---
-FROM eclipse-temurin:17-jdk-jammy as builder
+# --- Stage 1: Builder ---
+FROM eclipse-temurin:8-jdk AS builder
 
 WORKDIR /app
 
-# Copy Maven files, including the wrapper script and configuration directory
+# Copy Maven wrapper and project files
 COPY pom.xml .
 COPY mvnw .
 COPY .mvn .mvn
-COPY src /app/src
+COPY src src
 
-# Ensure the Maven wrapper script has executable permissions
+# Ensure Maven wrapper is executable
 RUN chmod +x mvnw
 
-# Run Maven build command, skipping tests
+# Build the project and skip tests
 RUN ./mvnw package -DskipTests
 
-# --- Stage 2: Minimal Runtime (Using stable Eclipse Temurin JRE) ---
-FROM eclipse-temurin:17-jre-jammy
+# --- Stage 2: Runtime ---
+FROM eclipse-temurin:8-jre
 
 WORKDIR /app
 
 # Copy the built JAR from the builder stage
 COPY --from=builder /app/target/*.jar /app/app.jar
 
-EXPOSE 8080
+# Expose default Spring Boot port
+EXPOSE 8083
 
-# Command to run the Java application
+# Run the application
 CMD ["java", "-jar", "app.jar"]

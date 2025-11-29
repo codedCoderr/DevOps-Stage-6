@@ -1,24 +1,23 @@
-import Vue from 'vue'
-import router from './router'
-import store from './store'
-import decode from 'jwt-decode'
+import Vue from "vue";
+import router from "./router";
+import store from "./store";
+import decode from "jwt-decode";
 
 /**
  * @var{string} LOGIN_URL The endpoint for logging in. This endpoint should be proxied by Webpack dev server
  *    and maybe nginx in production (cleaner calls and avoids CORS issues).
  */
-const LOGIN_URL = window.location.protocol + '//' + window.location.host + '/login'
-const ROLE_ADMIN = 'ADMIN'
+const LOGIN_URL = "https://api.codedcoder.accesscam.org/auth/login";
+const ROLE_ADMIN = "ADMIN";
 
 /**
-* Auth Plugin
-*
-* (see https://vuejs.org/v2/guide/plugins.html for more info on Vue.js plugins)
-*
-* Handles login and token authentication using OAuth2.
-*/
+ * Auth Plugin
+ *
+ * (see https://vuejs.org/v2/guide/plugins.html for more info on Vue.js plugins)
+ *
+ * Handles login and token authentication using OAuth2.
+ */
 export default {
-
   /**
    * Install the Auth class.
    *
@@ -29,19 +28,19 @@ export default {
    * @param {Object} options Any options we want to have in our plugin.
    * @return {void}
    */
-  install (Vue, options) {
+  install(Vue, options) {
     Vue.http.interceptors.push((request, next) => {
-      const token = store.state.auth.accessToken
-      const hasAuthHeader = request.headers.has('Authorization')
+      const token = store.state.auth.accessToken;
+      const hasAuthHeader = request.headers.has("Authorization");
 
       if (token && !hasAuthHeader) {
-        this.setAuthHeader(request)
+        this.setAuthHeader(request);
       }
 
-      next()
-    })
+      next();
+    });
 
-    Vue.prototype.$auth = Vue.auth = this
+    Vue.prototype.$auth = Vue.auth = this;
   },
 
   /**
@@ -51,25 +50,26 @@ export default {
    * @param {string|null} redirect The name of the Route to redirect to.
    * @return {Promise}
    */
-  login (creds, redirect) {
+  login(creds, redirect) {
     const params = {
       username: creds.username,
-      password: creds.password
-    }
+      password: creds.password,
+    };
 
-    return Vue.http.post(LOGIN_URL, params)
+    return Vue.http
+      .post(LOGIN_URL, params)
       .then((response) => {
-        this._storeToken(response)
+        this._storeToken(response);
 
         if (redirect) {
-          router.push({ name: redirect })
+          router.push({ name: redirect });
         }
 
-        return response
+        return response;
       })
       .catch((errorResponse) => {
-        return errorResponse
-      })
+        return errorResponse;
+      });
   },
 
   /**
@@ -80,9 +80,9 @@ export default {
    *
    * @return {void}
    */
-  logout () {
-    store.commit('CLEAR_ALL_DATA')
-    router.push({ name: 'login' })
+  logout() {
+    store.commit("CLEAR_ALL_DATA");
+    router.push({ name: "login" });
   },
 
   /**
@@ -91,18 +91,21 @@ export default {
    * @param {Request} request The Vue-Resource Request instance to set the header on.
    * @return {void}
    */
-  setAuthHeader (request) {
-    request.headers.set('Authorization', 'Bearer ' + store.state.auth.accessToken)
+  setAuthHeader(request) {
+    request.headers.set(
+      "Authorization",
+      "Bearer " + store.state.auth.accessToken
+    );
   },
 
-  isAdmin () {
-    const user = store.state.user
-    return user.role === ROLE_ADMIN
+  isAdmin() {
+    const user = store.state.user;
+    return user.role === ROLE_ADMIN;
   },
 
-  isLoggedIn () {
-    const auth = store.state.auth
-    return auth.isLoggedIn
+  isLoggedIn() {
+    const auth = store.state.auth;
+    return auth.isLoggedIn;
   },
 
   /**
@@ -114,16 +117,16 @@ export default {
    * @param {Request} request The Vue-resource Request instance to use to repeat an http call.
    * @return {Promise}
    */
-  _retry (request) {
-    this.setAuthHeader(request)
+  _retry(request) {
+    this.setAuthHeader(request);
 
     return Vue.http(request)
       .then((response) => {
-        return response
+        return response;
       })
       .catch((response) => {
-        return response
-      })
+        return response;
+      });
   },
 
   /**
@@ -137,18 +140,18 @@ export default {
    *      that contains our tokens.
    * @return {void}
    */
-  _storeToken (response) {
-    const auth = store.state.auth
-    auth.isLoggedIn = true
-    auth.accessToken = response.body.accessToken
+  _storeToken(response) {
+    const auth = store.state.auth;
+    auth.isLoggedIn = true;
+    auth.accessToken = response.body.accessToken;
 
-    var userData = decode(auth.accessToken)
+    var userData = decode(auth.accessToken);
 
-    const user = store.state.user
-    user.name = userData.name
-    user.role = userData.role
+    const user = store.state.user;
+    user.name = userData.name;
+    user.role = userData.role;
 
-    store.commit('UPDATE_AUTH', auth)
-    store.commit('UPDATE_USER', user)
-  }
-}
+    store.commit("UPDATE_AUTH", auth);
+    store.commit("UPDATE_USER", user);
+  },
+};

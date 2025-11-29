@@ -18,13 +18,13 @@ jobs:
         uses: actions/checkout@v4
 
       # 1. Setup AWS Credentials
-      # NOTE: Replace 'us-east-1' and use your actual secret names.
+      # NOTE: Replace 'us-east-2' and use your actual secret names.
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: us-east-2
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -34,7 +34,7 @@ jobs:
       # 2. Terraform Initialization
       - name: Terraform Init
         # Use the same backend configuration as in apply_approved.yml
-        run: terraform init -backend-config="bucket=my-todo-app-tf-state" -backend-config="key=todo-app/terraform.tfstate" -backend-config="region=us-east-1"
+        run: terraform init -backend-config="bucket=my-todo-app-tf-state" -backend-config="key=todo-app/terraform.tfstate" -backend-config="region=us-east-2"
         working-directory: infra/terraform
 
       # 3. Plan and Detect Drift

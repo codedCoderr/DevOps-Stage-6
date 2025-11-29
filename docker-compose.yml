@@ -50,18 +50,17 @@ services:
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/auth`)"
-      - "traefik.http.routers.auth.entrypoints=websecure"
-      - "traefik.http.routers.auth.tls.certresolver=letsencrypt"
-      - "traefik.http.services.auth.loadbalancer.server.port=8081"
-      # Strip prefix only if backend expects `/health` not `/auth/health`
-      - "traefik.http.middlewares.auth-stripprefix.stripprefix.prefixes=/auth"
-      - "traefik.http.routers.auth.middlewares=auth-stripprefix@docker"
+      # Route /login directly to backend
+      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/login`)"
+      - "traefik.http.routers.authapi.entrypoints=websecure"
+      - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authapi.loadbalancer.server.port=8081"
     networks:
       - web
     environment:
       - AUTH_API_PORT=8081
       - JWT_SECRET=myfancysecret
+      - USERS_API_ADDRESS=http://users-api:8083
 
   # --- Todos API ---
   todos:

@@ -39,6 +39,21 @@
     - codedcoderrr/users:latest
     - codedcoderrr/log-message-processor:latest
 
+- name: Remove existing containers if they exist
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+    force_kill: yes # Stop and remove if running
+
+  loop:
+    - traefik
+    - auth-api
+    - todos-api
+    - users-api
+    - redis-queue
+    - log-message-processor
+    - frontend
+
 # 5. Start/Restart services using docker-compose
 - name: Start/Restart all services with docker-compose
   become: yes
@@ -47,3 +62,4 @@
     state: present
     pull: missing # Pull from registry if not present
     build: never # NEVER build locally
+    recreate: always # Always recreate containers to use latest images

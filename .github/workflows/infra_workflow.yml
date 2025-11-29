@@ -22,8 +22,8 @@ jobs:
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
       - name: Setup Terraform
@@ -62,8 +62,8 @@ jobs:
         with:
           server_address: smtp.gmail.com # Example using Gmail SMTP
           server_port: 465
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
+          username: ${{ vars.EMAIL_USERNAME }}
+          password: ${{ vars.EMAIL_PASSWORD }}
           from: codedcoderrr@gmail.com # Replace with a valid sender email address
           subject: 🚨 INFRASTRUCTURE DRIFT DETECTED - Manual Review Required
           to: codedcoderrr@gmail.com

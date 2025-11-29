@@ -12,7 +12,6 @@ services:
       - --entrypoints.websecure.address=:443
       - --certificatesresolvers.letsencrypt.acme.email=codedcoderrr@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
       - --api.dashboard=true
     ports:
@@ -26,11 +25,6 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # Required for HTTP-01 challenge to succeed
-      - "traefik.http.routers.acme.rule=Host(`codedcoder.accesscam.org`)"
-      - "traefik.http.routers.acme.entrypoints=web"
-      - "traefik.http.routers.acme.service=noop@internal"
-
   # --- Frontend ---
   frontend:
     image: codedcoderrr/frontend:latest
@@ -40,9 +34,15 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
     networks:
       - web
+    depends_on:
+      - auth
+      - users
+      - todos
+    environment:
+      - PORT=80
 
   # --- Auth API ---
   auth:
@@ -50,14 +50,18 @@ services:
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/auth`)"
       - "traefik.http.routers.auth.entrypoints=websecure"
       - "traefik.http.routers.auth.tls.certresolver=letsencrypt"
       - "traefik.http.services.auth.loadbalancer.server.port=8081"
-      - "traefik.http.middlewares.auth-stripprefix.stripprefix.prefixes=/api/auth"
+      # Strip prefix only if backend expects `/health` not `/auth/health`
+      - "traefik.http.middlewares.auth-stripprefix.stripprefix.prefixes=/auth"
       - "traefik.http.routers.auth.middlewares=auth-stripprefix@docker"
     networks:
       - web
+    environment:
+      - AUTH_API_PORT=8081
+      - JWT_SECRET=myfancysecret
 
   # --- Todos API ---
   todos:
@@ -65,14 +69,19 @@ services:
     container_name: todos-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.todos.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/api/todos`)"
+      - "traefik.http.routers.todos.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/todos`)"
       - "traefik.http.routers.todos.entrypoints=websecure"
       - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
       - "traefik.http.services.todos.loadbalancer.server.port=8082"
-      - "traefik.http.middlewares.todos-stripprefix.stripprefix.prefixes=/api/todos"
+      - "traefik.http.middlewares.todos-stripprefix.stripprefix.prefixes=/todos"
       - "traefik.http.routers.todos.middlewares=todos-stripprefix@docker"
     networks:
       - web
+    environment:
+      - JWT_SECRET=myfancysecret
+      - REDIS_HOST=redis-queue
+      - REDIS_PORT=6379
+      - REDIS_CHANNEL=log_channel
 
   # --- Users API ---
   users:
@@ -80,14 +89,17 @@ services:
     container_name: users-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.users.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/api/users`)"
+      - "traefik.http.routers.users.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/users`)"
       - "traefik.http.routers.users.entrypoints=websecure"
       - "traefik.http.routers.users.tls.certresolver=letsencrypt"
       - "traefik.http.services.users.loadbalancer.server.port=8083"
-      - "traefik.http.middlewares.users-stripprefix.stripprefix.prefixes=/api/users"
+      - "traefik.http.middlewares.users-stripprefix.stripprefix.prefixes=/users"
       - "traefik.http.routers.users.middlewares=users-stripprefix@docker"
     networks:
       - web
+    environment:
+      - SERVER_PORT=8083
+      - JWT_SECRET=myfancysecret
 
   # --- Redis ---
   redis:

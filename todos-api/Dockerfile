@@ -1,18 +1,20 @@
-# Use official small base image with multi-arch support (amd64 + arm64)
+# Use official small base image with multi-arch support
 FROM node:20-alpine AS base
+
+# Set working directory
 WORKDIR /app
 
-# Only copy package files first (better layer caching)
+# Copy package files separately for caching
 COPY package*.json ./
 
 # Install ONLY production dependencies (smaller image)
 RUN npm install --production
 
-# Now copy the rest of the app
+# Copy the rest of the app
 COPY . .
 
-# Expose the port used by server.js
-EXPOSE 3000
+# Expose the port your app listens on
+EXPOSE 8082
 
-# Run the server
+# Default command to run the server
 CMD ["node", "server.js"]

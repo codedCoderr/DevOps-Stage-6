@@ -1,5 +1,12 @@
 ---
-# 1. Clone/update the repository (optional, needed only for docker-compose.yml or configs)
+# infra/ansible/roles/deploy/tasks/main.yml
+- name: Ensure docker is installed and running (systemd)
+  become: yes
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
 - name: Clone or update application repository
   ansible.builtin.git:
     repo: "{{ repo_url }}"
@@ -7,27 +14,45 @@
     clone: yes
     update: yes
     force: yes
+  register: git_result
 
-# 2. Ensure acme.json exists for Traefik
-- name: Create Traefik acme.json file with correct permissions
+- name: Show repo clone result (debug)
+  debug:
+    msg: "git changed={{ git_result.after is defined and git_result.after != git_result.before }}"
+
+- name: Ensure acme.json exists for Traefik (permissions)
   ansible.builtin.file:
-    path: "{{ app_dir }}/acme.json"
+    path: "{{ app_dir }}/acme/acme.json"
     state: touch
     mode: "0600"
     owner: root
     group: root
 
-# 3. Clean up unused Docker resources
-- name: Clean up unused Docker resources
+- name: Wait for docker socket to be available
+  ansible.builtin.wait_for:
+    path: /var/run/docker.sock
+    timeout: 60
+  become: yes
+
+- name: Safe Docker prune - remove stopped containers and unused volumes (do NOT prune images)
   become: yes
   community.docker.docker_prune:
     containers: yes
-    images: yes
     volumes: yes
-    #networks: yes
+    networks: no
+    images: no
 
-# 4. Pull pre-built Docker images
-- name: Pull pre-built Docker images for all services
+- name: Verify docker-compose.yml exists in app_dir
+  ansible.builtin.stat:
+    path: "{{ app_dir }}/docker-compose.yml"
+  register: compose_stat
+
+- name: Fail if docker-compose.yml missing
+  ansible.builtin.fail:
+    msg: "docker-compose.yml not found at {{ app_dir }}/docker-compose.yml - check repo layout or project_src"
+  when: not compose_stat.stat.exists
+
+- name: Pull pre-built Docker images for all services (non-fatal)
   become: yes
   community.docker.docker_image:
     name: "{{ item }}"
@@ -38,28 +63,42 @@
     - codedcoderrr/todos:latest
     - codedcoderrr/users:latest
     - codedcoderrr/log-message-processor:latest
+  ignore_errors: yes
 
-- name: Remove existing containers if they exist
-  community.docker.docker_container:
-    name: "{{ item }}"
-    state: absent
-    force_kill: yes # Stop and remove if running
-
-  loop:
-    - traefik
-    - auth-api
-    - todos-api
-    - users-api
-    - redis-queue
-    - log-message-processor
-    - frontend
-
-# 5. Start/Restart services using docker-compose
 - name: Start/Restart all services with docker-compose
   become: yes
   community.docker.docker_compose_v2:
-    project_src: "{{ app_dir }}"
+    project_src: "{{ app_dir }}" # important: directory that contains docker-compose.yml
     state: present
-    pull: missing # Pull from registry if not present
-    build: never # NEVER build locally
-    recreate: always # Always recreate containers to use latest images
+    pull: missing
+    build: never
+    recreate: always
+    remove_orphans: true
+  register: compose_result
+  retries: 3
+  delay: 5
+  until: compose_result is succeeded
+
+- name: Give docker a few seconds to settle
+  ansible.builtin.pause:
+    seconds: 5
+
+- name: Show docker compose ps (quick health check)
+  become: yes
+  ansible.builtin.shell: docker compose -f {{ app_dir }}/docker-compose.yml ps
+  register: docker_ps
+  changed_when: false
+
+- name: "Debug: docker compose ps"
+  debug:
+    var: docker_ps.stdout_lines
+
+- name: Tail traefik logs (one-time sample)
+  become: yes
+  ansible.builtin.shell: docker logs --tail 50 traefik || true
+  register: traefik_logs
+  changed_when: false
+
+- name: "Debug: traefik sample logs"
+  debug:
+    var: traefik_logs.stdout_lines

@@ -114,7 +114,7 @@ resource "null_resource" "ansible_run_trigger" {
   depends_on = [local_file.ansible_inventory]
 
   triggers = {
-    instance_ip = aws_instance.todo_server.public_ip
+    public_ip = aws_instance.todo_server.public_ip
   }
 
   provisioner "local-exec" {

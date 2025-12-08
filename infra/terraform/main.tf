@@ -8,13 +8,23 @@ terraform {
     }
   }
 
-  # Remote Backend (S3 example)
   backend "s3" {
     bucket = "my-todo-app-tf-state"
     key    = "todo-app/terraform.tfstate"
     region = "us-east-2"
-    # DynamoDB table for state locking
-    dynamodb_table = "terraform-locks"
+    use_lockfile = true  # replace deprecated dynamodb_table
+  }
+}
+
+# Manage all tags consistently via provider default_tags
+provider "aws" {
+  region = "us-east-2"
+
+  default_tags {
+    tags = {
+      Project     = "todo-app"
+      Environment = "dev"
+    }
   }
 }
 
@@ -22,7 +32,7 @@ variable "ssh_private_key" {
   type = string
 }
 
-# 1. Provision the Cloud Server (EC2 instance)
+# 1. EC2 instance
 resource "aws_instance" "todo_server" {
   ami           = "ami-0f5fcdfbd140e4ab7"
   instance_type = "c7i-flex.large"
@@ -38,23 +48,17 @@ resource "aws_instance" "todo_server" {
     delete_on_termination = true
   }
 
-  #tags = {
-  #  Name = "todo-server"
-  #}
-
-  lifecycle {
-    # remove ignore_changes completely
+  tags = {
+    Name = "todo-server"
   }
 }
 
-
-# 2. Configure Security Groups (Allow HTTP/HTTPS/SSH)
+# 2. Security group
 resource "aws_security_group" "todo_sg" {
   name        = "todo-app-sg"
   description = "Allow web traffic"
   vpc_id      = "vpc-0e44b8581b7a7e098"
 
-  # SSH
   ingress {
     from_port   = 22
     to_port     = 22
@@ -62,7 +66,6 @@ resource "aws_security_group" "todo_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTP
   ingress {
     from_port   = 80
     to_port     = 80
@@ -70,7 +73,6 @@ resource "aws_security_group" "todo_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTPS
   ingress {
     from_port   = 443
     to_port     = 443
@@ -78,16 +80,19 @@ resource "aws_security_group" "todo_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # All outbound traffic is allowed
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "todo-app-sg"
+  }
 }
 
-# 3. Generate Ansible inventory dynamically
+# 3. Generate Ansible inventory
 resource "local_file" "ansible_inventory" {
   depends_on = [aws_instance.todo_server]
 
@@ -102,7 +107,7 @@ EOT
   directory_permission = "0755"
 }
 
-# 4. Run Ansible via Null Resource
+# 4. Trigger Ansible
 resource "null_resource" "ansible_run_trigger" {
   depends_on = [local_file.ansible_inventory]
 

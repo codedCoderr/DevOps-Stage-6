@@ -8,17 +8,15 @@ on:
       - "infra/ansible/**"
 
 jobs:
-  drift_detection:
+  plan_and_detect_drift:
     runs-on: ubuntu-latest
     env:
       TF_VAR_ssh_private_key: ${{ vars.SSH_PRIVATE_KEY_BASE64 }}
 
     steps:
-      # 1. Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup AWS Credentials
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -26,13 +24,11 @@ jobs:
           aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
-      # 3. Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           cli_config_credentials_hostname: false
 
-      # 4. Terraform Init
       - name: Terraform Init
         working-directory: infra/terraform
         run: |
@@ -43,25 +39,20 @@ jobs:
             -reconfigure
 
       #########################################
-      # 5. STRICT DRIFT DETECTION
+      # 1. Full Drift Detection
       #########################################
-      - name: Drift Check (EC2 & SG Only)
+      - name: Drift Check (Full Refresh)
         id: drift
         working-directory: infra/terraform
         run: |
           set -eo pipefail
+          echo "Refreshing all resources..."
+          terraform refresh -input=false
 
-          echo "Refreshing only EC2 and Security Group..."
-          terraform refresh -target=aws_instance.todo_server -target=aws_security_group.todo_sg -input=false
-
-          echo "Planning only EC2 and SG..."
-          terraform plan \
-            -target=aws_instance.todo_server \
-            -target=aws_security_group.todo_sg \
-            -detailed-exitcode \
-            -out=tfplan.out
-
+          echo "Planning full infra..."
+          terraform plan -detailed-exitcode -out=tfplan.out
           EXIT_CODE=$?
+
           echo "Drift check exit code: $EXIT_CODE"
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
@@ -73,10 +64,8 @@ jobs:
             exit 2
           fi
 
-          echo "No drift detected"
-
       #########################################
-      # 6. DRIFT ALERT EMAIL
+      # 2. Drift Alert
       #########################################
       - name: ✉️ Drift Detected - Email Alert
         if: steps.drift.outputs.exit_code == '2'
@@ -100,40 +89,31 @@ jobs:
           echo "Drift detected — stopping pipeline."
           exit 2
 
-  apply_changes:
-    runs-on: ubuntu-latest
-    needs: drift_detection
-    if: needs.drift_detection.outputs.exit_code == '0'
-    env:
-      TF_VAR_ssh_private_key: ${{ vars.SSH_PRIVATE_KEY_BASE64 }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          cli_config_credentials_hostname: false
-
-      - name: Terraform Init
-        working-directory: infra/terraform
-        run: |
-          terraform init \
-            -backend-config="bucket=my-todo-app-tf-state" \
-            -backend-config="key=todo-app/terraform.tfstate" \
-            -backend-config="region=us-east-2" \
-            -reconfigure
-
-      - name: ✅ Apply Changes (Manual Approval)
+      #########################################
+      # 3. Normal Plan (Only if no drift)
+      #########################################
+      - name: Terraform Plan
+        id: plan
+        if: steps.drift.outputs.exit_code == '0'
         working-directory: infra/terraform
         run: |
           set -eo pipefail
-          echo "Applying only approved changes..."
-          terraform apply tfplan.out
+          terraform plan -detailed-exitcode -out=tfplan.out
+          PLAN_EXIT=$?
+          echo "Plan exit code: $PLAN_EXIT"
+          echo "exit_code=$PLAN_EXIT" >> $GITHUB_OUTPUT
+          if [ "$PLAN_EXIT" -eq 1 ]; then
+            echo "Terraform plan failed"
+            exit 1
+          fi
+
+      #########################################
+      # 4. Apply (Only if plan = 0)
+      #########################################
+      - name: ✅ Apply Changes (Auto-Approve)
+        if: steps.plan.outputs.exit_code == '0'
+        working-directory: infra/terraform
+        run: |
+          set -eo pipefail
+          echo "No drift. Running apply."
+          terraform apply -auto-approve tfplan.out

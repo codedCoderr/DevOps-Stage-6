@@ -1,5 +1,3 @@
-# infra/terraform/main.tf
-
 terraform {
   required_providers {
     aws = {
@@ -9,10 +7,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "my-todo-app-tf-state"
-    key    = "todo-app/terraform.tfstate"
-    region = "us-east-2"
-    use_lockfile = true  # replace deprecated dynamodb_table
+    bucket       = "my-todo-app-tf-state"
+    key          = "todo-app/terraform.tfstate"
+    region       = "us-east-2"
+    use_lockfile = true
   }
 }
 
@@ -32,12 +30,23 @@ variable "ssh_private_key" {
   type = string
 }
 
+# --- Core Networking (Added VPC resource definition to satisfy security group dependency) ---
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  enable_dns_support = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "todo-app-vpc"
+  }
+}
+
 # 1. EC2 instance
 resource "aws_instance" "todo_server" {
-  ami           = "ami-0f5fcdfbd140e4ab7"
-  instance_type = "c7i-flex.large"
-  key_name      = "access"
-  subnet_id     = "subnet-0517b2602f8db9eca"
+  ami                 = "ami-0f5fcdfbd140e4ab7"
+  instance_type       = "c7i-flex.large"
+  key_name            = "access"
+  subnet_id           = "subnet-0517b2602f8db9eca"
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
   associate_public_ip_address = true
 
@@ -50,20 +59,18 @@ resource "aws_instance" "todo_server" {
   tags = {
     Name = "todo-server"
   }
-
-  # Remove lifecycle.ignore_changes completely
 }
 
 
-# 2. Security group
-resource "aws_resource "aws_security_group" "todo_sg" {
+# 2. Security group (Fixes applied: corrected syntax and ensured Port 80 is open)
+resource "aws_security_group" "todo_sg" {
   name        = "todo-sg"
   description = "Allow inbound traffic for Traefik and SSH"
   vpc_id      = aws_vpc.main.id
 
   # --- INGRESS RULES ---
 
-  # 1. Allow HTTP (Port 80) for ACME/Lets Encrypt Challenge & HTTP Redirection
+  # 1. Allow HTTP (Port 80) - CRITICAL FIX FOR ACME/LETS ENCRYPT
   ingress {
     description = "HTTP access for Let's Encrypt validation"
     from_port   = 80
@@ -87,7 +94,7 @@ resource "aws_resource "aws_security_group" "todo_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # NOTE: In production, narrow this down to trusted IPs
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   # --- EGRESS RULE ---

@@ -3,14 +3,16 @@ name: ⚠️ Drift Detection
 on:
   push:
     branches: [main]
-    paths:
-      - "infra/terraform/**"
-      - "infra/ansible/**"
+    #paths:
+    # Trigger only if changes occur in the infrastructure directories
+    #- "infra/terraform/**"
+    #- "infra/ansible/**"
 
 jobs:
   detect_drift:
     runs-on: ubuntu-latest
     env:
+      # Use base64 SSH key passed via GitHub Variables
       TF_VAR_ssh_private_key: ${{ vars.SSH_PRIVATE_KEY_BASE64 }}
 
     steps:
@@ -40,22 +42,29 @@ jobs:
         id: drift
         working-directory: infra/terraform
         run: |
+          # Use 'set -eo pipefail' to ensure robust scripting.
+          # We must handle 'terraform plan' exit code 2 (drift) without failing the script prematurely.
           set -eo pipefail
+
           echo "Starting terraform refresh..."
           terraform refresh -input=false
+
           echo "Starting terraform plan..."
-          # Run plan, allowing it to exit with 0, 1, or 2
-          terraform plan -detailed-exitcode -out=tfplan.out || EXIT_CODE=$?
 
-          # If plan failed (exit code 1), EXIT_CODE is 1. If plan found changes, EXIT_CODE is 2. Otherwise 0.
-          if [ -z "$EXIT_CODE" ]; then
-            EXIT_CODE=0
-          fi
+          # Temporarily disable exit-on-error (set +e) to allow plan to exit with 2
+          set +e 
+          terraform plan -detailed-exitcode -out=tfplan.out
+          EXIT_CODE=$?
+          set -e # Re-enable exit-on-error
 
-          echo "Terraform Plan Exit Code: $EXIT_CODE" # <-- NEW DEBUG LINE
+          # Log the exit code for visibility
+          echo "Terraform Plan Exit Code: $EXIT_CODE" 
+
+          # Output the exit code for use in subsequent 'if' conditionals
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
       - name: ✉️ Drift Alert
+        # Triggers if plan finds changes (exit code 2)
         if: steps.drift.outputs.exit_code == '2'
         uses: dawidd6/action-send-mail@v3
         with:
@@ -72,5 +81,6 @@ jobs:
             Commit: ${{ github.sha }}
 
       - name: Stop Run Due to Drift
+        # Fail the job if drift is detected (exit code 2)
         if: steps.drift.outputs.exit_code == '2'
         run: exit 2

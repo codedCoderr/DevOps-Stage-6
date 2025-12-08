@@ -17,6 +17,10 @@ terraform {
   }
 }
 
+variable "ssh_private_key" {
+  type = string
+}
+
 # 1. Provision the Cloud Server (e.g., an EC2 instance)
 resource "aws_instance" "todo_server" {
   ami            = "ami-0f5fcdfbd140e4ab7" # Find a suitable Ubuntu/Amazon Linux 2 AMI
@@ -41,12 +45,11 @@ resource "aws_instance" "todo_server" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file("~/Downloads/access.pem") 
+      private_key = base64decode(var.ssh_private_key)
       host        = self.public_ip
     }
   }
 
-  # ❌ REMOVED: The local-exec provisioner has been moved to the null_resource below
 }
 
 # 2. Configure Security Groups (Allow HTTP/HTTPS/SSH)
@@ -90,12 +93,11 @@ resource "aws_security_group" "todo_sg" {
 
 # 3. Generate an Ansible inventory file dynamically
 resource "local_file" "ansible_inventory" {
-  # ✅ CORRECT PATH: Creates inventory.ini in the parent directory (/infra/)
   filename = "${path.module}/../inventory.ini"
   
   content = <<EOT
 [webservers]
-${aws_instance.todo_server.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/Downloads/access.pem
+${aws_instance.todo_server.public_ip} ansible_user=ubuntu
 EOT
 }
 
@@ -112,6 +114,12 @@ resource "null_resource" "ansible_run_trigger" {
 
   # This provisioner executes the Ansible command only when dependencies are met.
   provisioner "local-exec" {
-    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml"
-  }
+  command = <<EOT
+ANSIBLE_HOST_KEY_CHECKING=False \
+ansible-playbook -i ../inventory.ini \
+  ../ansible/deploy.yml \
+  --private-key <(echo "${var.ssh_private_key}")
+EOT
+}
+
 }

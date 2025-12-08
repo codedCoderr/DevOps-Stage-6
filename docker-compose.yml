@@ -49,7 +49,9 @@ services:
       - todos
     environment:
       - PORT=80
-
+      - AUTH_API_ADDRESS=http://auth-api:8081
+      - TODOS_API_ADDRESS=http://todos-api:8082
+      - USERS_API_ADDRESS=http://users-api:8083
   # --- Auth API ---
   auth:
     image: codedcoderrr/auth:latest
@@ -87,6 +89,7 @@ services:
       - REDIS_HOST=redis-queue
       - REDIS_PORT=6379
       - REDIS_CHANNEL=log_channel
+      - TODO_API_PORT=8082
 
   # --- Users API ---
   users:

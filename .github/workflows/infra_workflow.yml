@@ -12,6 +12,8 @@ on:
 jobs:
   plan_and_detect_drift:
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_ssh_private_key: ${{ vars.SSH_PRIVATE_KEY_BASE64 }}
 
     steps:
       - name: Checkout Code

@@ -23,25 +23,27 @@ variable "ssh_private_key" {
 
 # 1. Provision the Cloud Server (e.g., an EC2 instance)
 resource "aws_instance" "todo_server" {
-  ami            = "ami-0f5fcdfbd140e4ab7" # Find a suitable Ubuntu/Amazon Linux 2 AMI
-  instance_type  = "c7i-flex.large"
-  key_name       = "access"
-
-  subnet_id = "subnet-0517b2602f8db9eca"
-
+  ami           = "ami-0f5fcdfbd140e4ab7"
+  instance_type = "c7i-flex.large"
+  key_name      = "access"
+  subnet_id     = "subnet-0517b2602f8db9eca"
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
-  
+
   root_block_device {
-    volume_size = 50 # Increase to 20GB
+    volume_size = 50
     volume_type = "gp3"
     delete_on_termination = true
   }
 
-  # 4. Remote commands (e.g., waiting for cloud-init)
-  provisioner "remote-exec" {
-    inline = [
-      "echo 'Waiting for cloud-init...'" # Wait for initial setup
+  lifecycle {
+    ignore_changes = [
+      public_ip,          # Ignore ephemeral IP drift
+      tags,               # Ignore manual tag changes if needed
     ]
+  }
+
+  provisioner "remote-exec" {
+    inline = ["echo 'Waiting for cloud-init...'"]
     connection {
       type        = "ssh"
       user        = "ubuntu"
@@ -49,7 +51,6 @@ resource "aws_instance" "todo_server" {
       host        = self.public_ip
     }
   }
-
 }
 
 # 2. Configure Security Groups (Allow HTTP/HTTPS/SSH)
@@ -94,10 +95,10 @@ resource "aws_security_group" "todo_sg" {
 # 3. Generate an Ansible inventory file dynamically
 resource "local_file" "ansible_inventory" {
   filename = "${path.module}/../inventory.ini"
-  
+
   content = <<EOT
 [webservers]
-${aws_instance.todo_server.public_ip} ansible_user=ubuntu
+${aws_instance.todo_server.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=/tmp/access.pem
 EOT
 
   file_permission      = "0644"
@@ -115,16 +116,15 @@ resource "null_resource" "ansible_run_trigger" {
   ]
 
   triggers = {
-    instance_public_ip = aws_instance.todo_server.public_ip
+    always_run = timestamp() # forces re-run on every apply, but ignores ephemeral IP drift
   }
 
   provisioner "local-exec" {
-  command = <<EOT
+    command = <<EOT
 echo "${var.ssh_private_key}" | base64 --decode > /tmp/access.pem
 chmod 600 /tmp/access.pem
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml --private-key /tmp/access.pem
 rm /tmp/access.pem
 EOT
-}
-
+  }
 }

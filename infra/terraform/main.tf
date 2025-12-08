@@ -62,17 +62,22 @@ resource "aws_instance" "todo_server" {
 }
 
 
-# 2. Security group (Syntax fixed, Port 80 open, Description error fixed)
+# 2. Security group (FIXED: Added lifecycle block to prevent stuck destroy)
 resource "aws_security_group" "todo_sg" {
   name        = "todo-sg"
   description = "Allow inbound traffic for Traefik and SSH"
   vpc_id      = aws_vpc.main.id
 
+  # CRITICAL FIX: Forces Terraform to create the new SG before destroying the old one,
+  # preventing the dependency hang on the EC2 instance.
+  lifecycle {
+    create_before_destroy = true
+  }
+
   # --- INGRESS RULES ---
 
-  # 1. Allow HTTP (Port 80) - CRITICAL FIX FOR ACME/LETS ENCRYPT
+  # 1. Allow HTTP (Port 80)
   ingress {
-    # Description fixed: removed the apostrophe
     description = "HTTP access for Lets Encrypt validation" 
     from_port   = 80
     to_port     = 80

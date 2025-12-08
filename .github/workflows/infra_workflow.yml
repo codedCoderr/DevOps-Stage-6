@@ -37,31 +37,34 @@ jobs:
             -backend-config="region=us-east-2" \
             -reconfigure
 
-      # Step 1: Run Terraform Plan to detect drift
-      # This step will 'fail' (exit code 2) if drift is found. We use '|| true'
-      # to prevent the overall workflow from stopping here, allowing us to
-      # check the status later.
-      - name: Run Terraform Plan (Drift Check)
-        id: plan
+      - name: Drift Check
+        id: drift
         working-directory: infra/terraform
         run: |
-          terraform refresh -input=false
-          terraform plan -detailed-exitcode -out=tfplan.out || true
+          # Use 'set +e' to explicitly prevent the script from exiting when plan returns 2
+          set +e
 
-      - name: Set Exit Code Output
-        id: exit_code_setter
-        run: |
-          # If the plan step failed due to exit code 2 (drift), set the output to 2.
-          if [ "${{ steps.plan.outcome }}" == "failure" ]; then
-            echo "exit_code=2" >> $GITHUB_OUTPUT
-          else
-            # If the plan succeeded (exit code 0), set output to 0.
-            echo "exit_code=0" >> $GITHUB_OUTPUT
-          fi
+          echo "Starting terraform refresh..."
+          terraform refresh -input=false
+
+          echo "Starting terraform plan..."
+
+          # Run plan and immediately capture the exit code
+          terraform plan -detailed-exitcode -out=tfplan.out
+          EXIT_CODE=$?
+
+          # Log the exit code for visibility
+          echo "Terraform Plan Exit Code: $EXIT_CODE" 
+
+          # Output the exit code for use in subsequent 'if' conditionals
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Re-enable exit-on-error for general script safety
+          set -e
 
       - name: ✉️ Drift Alert
-        # Check the custom output set in the previous step
-        if: steps.exit_code_setter.outputs.exit_code == '2'
+        # Triggers if plan returns exit code 2 (drift)
+        if: steps.drift.outputs.exit_code == '2'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -77,6 +80,6 @@ jobs:
             Commit: ${{ github.sha }}
 
       - name: Stop Run Due to Drift
-        # Fail the overall job if drift is detected (exit code 2)
-        if: steps.exit_code_setter.outputs.exit_code == '2'
+        # Fail the job if drift is detected (exit code 2)
+        if: steps.drift.outputs.exit_code == '2'
         run: exit 2

@@ -1,3 +1,4 @@
+# infra_workflow.yml
 name: ⚙️ Infrastructure Management (Drift Detection)
 
 on:
@@ -35,7 +36,8 @@ jobs:
           terraform init \
             -backend-config="bucket=my-todo-app-tf-state" \
             -backend-config="key=todo-app/terraform.tfstate" \
-            -backend-config="region=us-east-2"
+            -backend-config="region=us-east-2" \
+            -reconfigure
 
       - name: Terraform Plan & Drift Detection
         id: plan
@@ -43,7 +45,7 @@ jobs:
         run: |
           set -eo pipefail
 
-          # Run plan with detailed exit code
+          # Save plan to ensure apply matches exactly
           terraform plan -detailed-exitcode -out=tfplan.out
           PLAN_EXIT_CODE=$?
 
@@ -60,7 +62,7 @@ jobs:
 
           echo "No drift detected. Safe to apply."
 
-      - name: ✉️ Drift Detected - Email Alert & Wait for Approval
+      - name: ✉️ Drift Detected - Email Alert
         if: steps.plan.outputs.exit_code == '2'
         uses: dawidd6/action-send-mail@v3
         with:

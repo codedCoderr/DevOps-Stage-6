@@ -7,13 +7,14 @@ terraform {
       version = "~> 5.0"
     }
   }
+
   # Remote Backend (S3 example)
   backend "s3" {
     bucket = "my-todo-app-tf-state"
     key    = "todo-app/terraform.tfstate"
     region = "us-east-2"
     # DynamoDB table for state locking
-    dynamodb_table = "terraform-locks" 
+    dynamodb_table = "terraform-locks"
   }
 }
 
@@ -21,7 +22,7 @@ variable "ssh_private_key" {
   type = string
 }
 
-# 1. Provision the Cloud Server (e.g., an EC2 instance)
+# 1. Provision the Cloud Server (EC2 instance)
 resource "aws_instance" "todo_server" {
   ami           = "ami-0f5fcdfbd140e4ab7"
   instance_type = "c7i-flex.large"
@@ -29,27 +30,18 @@ resource "aws_instance" "todo_server" {
   subnet_id     = "subnet-0517b2602f8db9eca"
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
 
+  associate_public_ip_address = true
+
   root_block_device {
-    volume_size = 50
-    volume_type = "gp3"
+    volume_size           = 50
+    volume_type           = "gp3"
     delete_on_termination = true
   }
 
   lifecycle {
     ignore_changes = [
-      public_ip,          # Ignore ephemeral IP drift
-      tags,               # Ignore manual tag changes if needed
+      tags,
     ]
-  }
-
-  provisioner "remote-exec" {
-    inline = ["echo 'Waiting for cloud-init...'"]
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = base64decode(var.ssh_private_key)
-      host        = self.public_ip
-    }
   }
 }
 
@@ -64,10 +56,10 @@ resource "aws_security_group" "todo_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTP 
+  # HTTP
   ingress {
     from_port   = 80
     to_port     = 80
@@ -75,7 +67,7 @@ resource "aws_security_group" "todo_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTPS 
+  # HTTPS
   ingress {
     from_port   = 443
     to_port     = 443
@@ -92,8 +84,10 @@ resource "aws_security_group" "todo_sg" {
   }
 }
 
-# 3. Generate an Ansible inventory file dynamically
+# 3. Generate Ansible inventory dynamically
 resource "local_file" "ansible_inventory" {
+  depends_on = [aws_instance.todo_server]
+
   filename = "${path.module}/../inventory.ini"
 
   content = <<EOT
@@ -105,18 +99,12 @@ EOT
   directory_permission = "0755"
 }
 
-## ✨ Step 4: Run Ansible via Null Resource (The Fix)
-
-# This resource guarantees that Ansible runs only after the EC2 instance is fully created AND the inventory file has been written to the parent directory.
-
+# 4. Run Ansible via Null Resource
 resource "null_resource" "ansible_run_trigger" {
-  depends_on = [
-    aws_instance.todo_server,
-    local_file.ansible_inventory
-  ]
+  depends_on = [local_file.ansible_inventory]
 
   triggers = {
-    always_run = timestamp() # forces re-run on every apply, but ignores ephemeral IP drift
+    instance_ip = aws_instance.todo_server.public_ip
   }
 
   provisioner "local-exec" {

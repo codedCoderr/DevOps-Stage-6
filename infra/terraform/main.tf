@@ -43,9 +43,6 @@ resource "aws_instance" "todo_server" {
   }
 
   lifecycle {
-    # ignore_changes = [
- #     tags,
- #   ]
   }
 }
 

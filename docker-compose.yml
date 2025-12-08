@@ -29,12 +29,10 @@ services:
     container_name: frontend
     labels:
       - "traefik.enable=true"
-      # HTTPS route for domain
       - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend.entrypoints=web,websecure"
       - "traefik.http.routers.frontend.priority=1"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      # HTTP fallback for IP/localhost access
       - "traefik.http.routers.frontend-http.rule=PathPrefix(`/`)"
       - "traefik.http.routers.frontend-http.entrypoints=web"
       - "traefik.http.routers.frontend-http.priority=1"
@@ -47,16 +45,16 @@ services:
       - todos
     environment:
       - PORT=80
-      - AUTH_API_ADDRESS=http://auth-api:8081
-      - TODOS_API_ADDRESS=http://todos-api:8082
-      - USERS_API_ADDRESS=http://users-api:8083
+      - AUTH_API_ADDRESS=https://api.codedcoder.accesscam.org/login
+      - TODOS_API_ADDRESS=https://api.codedcoder.accesscam.org/todos
+      - USERS_API_ADDRESS=https://api.codedcoder.accesscam.org/users
+
   # --- Auth API ---
   auth:
     image: codedcoderrr/auth:latest
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      # Route /login directly to backend
       - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/login`)"
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
@@ -66,7 +64,7 @@ services:
     environment:
       - AUTH_API_PORT=8081
       - JWT_SECRET=myfancysecret
-      - USERS_API_ADDRESS=http://users-api:8083
+      - USERS_API_ADDRESS=https://api.codedcoder.accesscam.org/users
 
   # --- Todos API ---
   todos:

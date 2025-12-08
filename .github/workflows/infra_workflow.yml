@@ -1,4 +1,4 @@
-name: ⚙️ Infrastructure Management (Strict Drift Detection)
+name: ⚠️ Drift Detection
 
 on:
   push:
@@ -8,17 +8,15 @@ on:
       - "infra/ansible/**"
 
 jobs:
-  plan_and_detect_drift:
+  detect_drift:
     runs-on: ubuntu-latest
     env:
       TF_VAR_ssh_private_key: ${{ vars.SSH_PRIVATE_KEY_BASE64 }}
 
     steps:
-      # 1. Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup AWS Credentials
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -26,13 +24,9 @@ jobs:
           aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
-      # 3. Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        with:
-          cli_config_credentials_hostname: false
 
-      # 4. Terraform Init
       - name: Terraform Init
         working-directory: infra/terraform
         run: |
@@ -42,39 +36,17 @@ jobs:
             -backend-config="region=us-east-2" \
             -reconfigure
 
-      #########################################
-      # 5. STRICT DRIFT DETECTION
-      #########################################
-      - name: Drift Check (Full Refresh)
+      - name: Drift Check
         id: drift
         working-directory: infra/terraform
         run: |
           set -eo pipefail
-
-          # Force refresh all resources from AWS
           terraform refresh -input=false
-
-          # Full plan to detect any drift
           terraform plan -detailed-exitcode -out=tfplan.out
           EXIT_CODE=$?
-
-          echo "Drift check exit code: $EXIT_CODE"
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
-          if [ "$EXIT_CODE" -eq 1 ]; then
-            echo "Terraform plan failed."
-            exit 1
-          elif [ "$EXIT_CODE" -eq 2 ]; then
-            echo "Drift detected"
-            exit 2
-          fi
-
-          echo "No drift detected"
-
-      #########################################
-      # 6. DRIFT ALERT
-      #########################################
-      - name: ✉️ Drift Detected - Email Alert
+      - name: ✉️ Drift Alert
         if: steps.drift.outputs.exit_code == '2'
         uses: dawidd6/action-send-mail@v3
         with:
@@ -83,47 +55,13 @@ jobs:
           username: ${{ vars.EMAIL_USERNAME }}
           password: ${{ vars.EMAIL_PASSWORD }}
           from: codedcoderrr@gmail.com
-          subject: 🚨 INFRASTRUCTURE DRIFT DETECTED - Manual Review Required
+          subject: 🚨 INFRASTRUCTURE DRIFT DETECTED
           to: codedcoderrr@gmail.com
           body: |
-            Drift has been detected in the Todo App infrastructure.
+            Terraform detected drift in the infrastructure.
             Manual review is required before applying changes.
             Commit: ${{ github.sha }}
 
       - name: Stop Run Due to Drift
         if: steps.drift.outputs.exit_code == '2'
-        run: |
-          echo "Drift detected — stopping pipeline."
-          exit 2
-
-      #########################################
-      # 7. NORMAL PLAN (Only runs if NO drift)
-      #########################################
-      - name: Terraform Plan
-        id: plan
-        if: steps.drift.outputs.exit_code == '0'
-        working-directory: infra/terraform
-        run: |
-          set -eo pipefail
-
-          terraform plan -detailed-exitcode -out=tfplan.out
-          PLAN_EXIT=$?
-
-          echo "Plan exit code: $PLAN_EXIT"
-          echo "exit_code=$PLAN_EXIT" >> $GITHUB_OUTPUT
-
-          if [ "$PLAN_EXIT" -eq 1 ]; then
-            echo "Terraform plan failed."
-            exit 1
-          fi
-
-      #########################################
-      # 8. APPLY (ONLY if plan = 0)
-      #########################################
-      - name: ✅ Apply Changes (Auto-Approve)
-        if: steps.plan.outputs.exit_code == '0'
-        working-directory: infra/terraform
-        run: |
-          set -eo pipefail
-          echo "No drift. Running apply."
-          terraform apply -auto-approve tfplan.out
+        run: exit 2

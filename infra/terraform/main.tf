@@ -30,7 +30,7 @@ variable "ssh_private_key" {
   type = string
 }
 
-# --- Core Networking (Added VPC resource definition to satisfy security group dependency) ---
+# --- Core Networking (VPC definition added) ---
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
   enable_dns_support = true
@@ -62,7 +62,7 @@ resource "aws_instance" "todo_server" {
 }
 
 
-# 2. Security group (Fixes applied: corrected syntax and ensured Port 80 is open)
+# 2. Security group (Syntax fixed, Port 80 open, Description error fixed)
 resource "aws_security_group" "todo_sg" {
   name        = "todo-sg"
   description = "Allow inbound traffic for Traefik and SSH"
@@ -72,7 +72,8 @@ resource "aws_security_group" "todo_sg" {
 
   # 1. Allow HTTP (Port 80) - CRITICAL FIX FOR ACME/LETS ENCRYPT
   ingress {
-    description = "HTTP access for Let's Encrypt validation"
+    # Description fixed: removed the apostrophe
+    description = "HTTP access for Lets Encrypt validation" 
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"

@@ -20,11 +20,22 @@
   debug:
     msg: "git changed={{ git_result.after is defined and git_result.after != git_result.before }}"
 
-- name: Ensure acme.json exists for Traefik (permissions)
+- name: Create ACME directory for Traefik certificates
+  ansible.builtin.file:
+    path: "{{ app_dir }}/acme"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure acme.json exists for Traefik with correct permissions
   ansible.builtin.file:
     path: "{{ app_dir }}/acme/acme.json"
     state: touch
     mode: "0600"
+    # Ownership MUST be set to the user running the deployment (root)
+    # or the user Traefik runs as (often non-root),
+    # but 'root' is usually sufficient for standard cloud deployments.
     owner: root
     group: root
 

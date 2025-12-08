@@ -36,6 +36,10 @@ resource "aws_instance" "todo_server" {
     volume_type = "gp3"
     delete_on_termination = true
   }
+  
+  tags = {
+    temp_drift_test = "true"  # Add this line
+  }
 
   # 4. Remote commands (e.g., waiting for cloud-init)
   provisioner "remote-exec" {
@@ -106,20 +110,21 @@ EOT
 # This resource guarantees that Ansible runs only after the EC2 instance is fully created AND the inventory file has been written to the parent directory.
 
 resource "null_resource" "ansible_run_trigger" {
-  # 🔑 FIX: Explicitly wait for the instance and the inventory file to exist.
   depends_on = [
     aws_instance.todo_server,
     local_file.ansible_inventory
   ]
 
-  # This provisioner executes the Ansible command only when dependencies are met.
+  triggers = {
+    instance_public_ip = aws_instance.todo_server.public_ip
+  }
+
   provisioner "local-exec" {
-  command = <<EOT
+    command = <<EOT
 ANSIBLE_HOST_KEY_CHECKING=False \
 ansible-playbook -i ../inventory.ini \
   ../ansible/deploy.yml \
-  --private-key <(echo "${var.ssh_private_key}")
+  --private-key <(echo "${var.ssh_private_key}" | base64 --decode)
 EOT
-}
-
+  }
 }

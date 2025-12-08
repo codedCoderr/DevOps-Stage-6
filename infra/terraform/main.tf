@@ -99,6 +99,10 @@ resource "local_file" "ansible_inventory" {
 [webservers]
 ${aws_instance.todo_server.public_ip} ansible_user=ubuntu
 EOT
+
+  filename             = "../inventory.ini"
+  file_permission      = "0644"
+  directory_permission = "0755"
 }
 
 ## ✨ Step 4: Run Ansible via Null Resource (The Fix)

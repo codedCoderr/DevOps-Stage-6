@@ -41,9 +41,18 @@ jobs:
         working-directory: infra/terraform
         run: |
           set -eo pipefail
+          echo "Starting terraform refresh..."
           terraform refresh -input=false
-          terraform plan -detailed-exitcode -out=tfplan.out
-          EXIT_CODE=$?
+          echo "Starting terraform plan..."
+          # Run plan, allowing it to exit with 0, 1, or 2
+          terraform plan -detailed-exitcode -out=tfplan.out || EXIT_CODE=$?
+
+          # If plan failed (exit code 1), EXIT_CODE is 1. If plan found changes, EXIT_CODE is 2. Otherwise 0.
+          if [ -z "$EXIT_CODE" ]; then
+            EXIT_CODE=0
+          fi
+
+          echo "Terraform Plan Exit Code: $EXIT_CODE" # <-- NEW DEBUG LINE
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
       - name: ✉️ Drift Alert

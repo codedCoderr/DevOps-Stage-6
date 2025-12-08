@@ -120,10 +120,12 @@ resource "null_resource" "ansible_run_trigger" {
   }
 
   provisioner "local-exec" {
-    command = <<EOT
-  echo "${var.ssh_private_key}" | base64 --decode > /tmp/access.pem
-  ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml --private-key /tmp/access.pem
-  rm /tmp/access.pem
-  EOT
-  }
+  command = <<EOT
+echo "${var.ssh_private_key}" | base64 --decode > /tmp/access.pem
+chmod 600 /tmp/access.pem
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml --private-key /tmp/access.pem
+rm /tmp/access.pem
+EOT
+}
+
 }

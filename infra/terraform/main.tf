@@ -30,16 +30,18 @@ variable "ssh_private_key" {
   type = string
 }
 
-# --- Core Networking (VPC definition added) ---
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "todo-app-vpc"
-  }
+# --- Core Networking Lookup (FIXED: Using Data Sources to find existing VPC) ---
+# Find the VPC ID based on the existing subnet ID used for the EC2 instance.
+# This prevents the InvalidGroup.NotFound error.
+data "aws_subnet" "selected_subnet" {
+  id = "subnet-0517b2602f8db9eca"
 }
+
+data "aws_vpc" "selected_vpc" {
+  id = data.aws_subnet.selected_subnet.vpc_id
+}
+# --- End Lookup ---
+
 
 # 1. EC2 instance
 resource "aws_instance" "todo_server" {
@@ -62,14 +64,14 @@ resource "aws_instance" "todo_server" {
 }
 
 
-# 2. Security group (FIXED: Added lifecycle block to prevent stuck destroy)
+# 2. Security group (Will now be created in the correct, existing VPC)
 resource "aws_security_group" "todo_sg" {
   name        = "todo-sg"
   description = "Allow inbound traffic for Traefik and SSH"
-  vpc_id      = aws_vpc.main.id
+  # Reference the VPC ID found via the data source
+  vpc_id      = data.aws_vpc.selected_vpc.id 
 
-  # CRITICAL FIX: Forces Terraform to create the new SG before destroying the old one,
-  # preventing the dependency hang on the EC2 instance.
+  # Keeps the instance attached to the old SG until the new one is ready
   lifecycle {
     create_before_destroy = true
   }

@@ -39,7 +39,6 @@ resource "aws_instance" "todo_server" {
   key_name      = "access"
   subnet_id     = "subnet-0517b2602f8db9eca"
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
-
   associate_public_ip_address = true
 
   root_block_device {
@@ -51,7 +50,10 @@ resource "aws_instance" "todo_server" {
   tags = {
     Name = "todo-server"
   }
+
+  # Remove lifecycle.ignore_changes completely
 }
+
 
 # 2. Security group
 resource "aws_security_group" "todo_sg" {

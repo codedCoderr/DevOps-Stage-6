@@ -38,9 +38,9 @@ resource "aws_instance" "todo_server" {
     delete_on_termination = true
   }
 
-  tags = {
-    Name = "todo-server"
-  }
+  #tags = {
+  #  Name = "todo-server"
+  #}
 
   lifecycle {
     # remove ignore_changes completely

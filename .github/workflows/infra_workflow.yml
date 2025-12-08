@@ -39,7 +39,7 @@ jobs:
             -reconfigure
 
       #########################################
-      # 1. STRICT DRIFT DETECTION STAGE
+      # 1. STRICT DRIFT DETECTION STAGE.
       #########################################
       - name: Drift Check (Refresh Only)
         id: drift

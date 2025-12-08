@@ -56,32 +56,43 @@ resource "aws_instance" "todo_server" {
 
 
 # 2. Security group
-resource "aws_security_group" "todo_sg" {
-  name        = "todo-app-sg"
-  description = "Allow web traffic"
-  vpc_id      = "vpc-0e44b8581b7a7e098"
+resource "aws_resource "aws_security_group" "todo_sg" {
+  name        = "todo-sg"
+  description = "Allow inbound traffic for Traefik and SSH"
+  vpc_id      = aws_vpc.main.id
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # --- INGRESS RULES ---
 
+  # 1. Allow HTTP (Port 80) for ACME/Lets Encrypt Challenge & HTTP Redirection
   ingress {
+    description = "HTTP access for Let's Encrypt validation"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # 2. Allow HTTPS (Port 443) for secure application access
   ingress {
+    description = "HTTPS access"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # 3. Allow SSH (Port 22) for deployment/management
+  ingress {
+    description = "SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # NOTE: In production, narrow this down to trusted IPs
+  }
+
+  # --- EGRESS RULE ---
+
+  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -90,7 +101,7 @@ resource "aws_security_group" "todo_sg" {
   }
 
   tags = {
-    Name = "todo-app-sg"
+    Name = "todo-sg"
   }
 }
 

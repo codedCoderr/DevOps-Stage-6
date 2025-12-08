@@ -26,7 +26,7 @@ resource "aws_instance" "todo_server" {
   ami            = "ami-0f5fcdfbd140e4ab7" # Find a suitable Ubuntu/Amazon Linux 2 AMI
   instance_type  = "c7i-flex.large"
   key_name       = "access"
-  
+
   subnet_id = "subnet-0517b2602f8db9eca"
 
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
@@ -121,10 +121,9 @@ resource "null_resource" "ansible_run_trigger" {
 
   provisioner "local-exec" {
     command = <<EOT
-ANSIBLE_HOST_KEY_CHECKING=False \
-ansible-playbook -i ../inventory.ini \
-  ../ansible/deploy.yml \
-  --private-key <(echo "${var.ssh_private_key}" | base64 --decode)
-EOT
+  echo "${var.ssh_private_key}" | base64 --decode > /tmp/access.pem
+  ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml --private-key /tmp/access.pem
+  rm /tmp/access.pem
+  EOT
   }
 }

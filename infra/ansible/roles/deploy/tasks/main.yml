@@ -24,8 +24,8 @@
   ansible.builtin.file:
     path: "{{ app_dir }}/acme"
     state: directory
-    owner: root
-    group: root
+    owner: ubuntu
+    group: ubuntu
     mode: "0755"
 
 - name: Ensure acme.json exists for Traefik with correct permissions
@@ -33,11 +33,11 @@
     path: "{{ app_dir }}/acme/acme.json"
     state: touch
     mode: "0600"
-    # Ownership MUST be set to the user running the deployment (root)
+    # Ownership MUST be set to the user running the deployment (ubuntu)
     # or the user Traefik runs as (often non-root),
-    # but 'root' is usually sufficient for standard cloud deployments.
-    owner: root
-    group: root
+    # but 'ubuntu' is usually sufficient for standard cloud deployments.
+    owner: ubuntu
+    group: ubuntu
 
 - name: Wait for docker socket to be available
   ansible.builtin.wait_for:

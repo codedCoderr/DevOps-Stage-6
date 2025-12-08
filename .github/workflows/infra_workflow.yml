@@ -39,13 +39,16 @@ jobs:
             -backend-config="region=us-east-2" \
             -reconfigure
 
+      - name: Terraform Refresh
+        working-directory: infra/terraform
+        run: terraform refresh
+
       - name: Terraform Plan & Drift Detection
         id: plan
         working-directory: infra/terraform
         run: |
           set -eo pipefail
 
-          # Save plan to ensure apply matches exactly
           terraform plan -detailed-exitcode -out=tfplan.out
           PLAN_EXIT_CODE=$?
 

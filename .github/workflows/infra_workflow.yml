@@ -1,5 +1,4 @@
-# infra_workflow.yml
-name: ⚙️ Infrastructure Management (Drift Detection)
+name: ⚙️ Infrastructure Management (Strict Drift Detection)
 
 on:
   push:
@@ -39,34 +38,31 @@ jobs:
             -backend-config="region=us-east-2" \
             -reconfigure
 
-      - name: Terraform Refresh
-        working-directory: infra/terraform
-        run: terraform refresh
-
-      - name: Terraform Plan & Drift Detection
-        id: plan
+      #########################################
+      # 1. STRICT DRIFT DETECTION STAGE
+      #########################################
+      - name: Drift Check (Refresh Only)
+        id: drift
         working-directory: infra/terraform
         run: |
           set -eo pipefail
 
-          terraform plan -detailed-exitcode -out=tfplan.out
-          PLAN_EXIT_CODE=$?
+          terraform plan -refresh-only -detailed-exitcode
+          EXIT_CODE=$?
 
-          echo "Plan exit code: $PLAN_EXIT_CODE"
-          echo "exit_code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "Drift check exit code: $EXIT_CODE"
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
-          if [ "$PLAN_EXIT_CODE" -eq 1 ]; then
-            echo "Terraform plan failed with an error."
+          if [ "$EXIT_CODE" -eq 1 ]; then
+            echo "Terraform refresh-only failed."
             exit 1
-          elif [ "$PLAN_EXIT_CODE" -eq 2 ]; then
-            echo "Terraform detected drift or pending changes outside of code."
-            exit 2
           fi
 
-          echo "No drift detected. Safe to apply."
-
+      #########################################
+      # 2. DRIFT ALERT
+      #########################################
       - name: ✉️ Drift Detected - Email Alert
-        if: steps.plan.outputs.exit_code == '2'
+        if: steps.drift.outputs.exit_code == '2'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -77,14 +73,45 @@ jobs:
           subject: 🚨 INFRASTRUCTURE DRIFT DETECTED - Manual Review Required
           to: codedcoderrr@gmail.com
           body: |
-            Drift was detected in the Todo App infrastructure by the CI/CD pipeline.
-            Please review the plan artifacts and run the 'Infra Apply (Manual Approval)' workflow to proceed.
+            Drift has been detected in the Todo App infrastructure.
+            Manual review is required before applying changes.
             Commit: ${{ github.sha }}
 
-      - name: ✅ Apply Changes (Auto-Approve if No Drift)
+      # Stop the workflow if drift exists
+      - name: Stop Run Due to Drift
+        if: steps.drift.outputs.exit_code == '2'
+        run: |
+          echo "Drift detected — stopping pipeline."
+          exit 2
+
+      #########################################
+      # 3. NORMAL PLAN (Only runs if NO drift)
+      #########################################
+      - name: Terraform Plan
+        id: plan
+        if: steps.drift.outputs.exit_code == '0'
+        working-directory: infra/terraform
+        run: |
+          set -eo pipefail
+
+          terraform plan -detailed-exitcode -out=tfplan.out
+          PLAN_EXIT=$?
+
+          echo "Plan exit code: $PLAN_EXIT"
+          echo "exit_code=$PLAN_EXIT" >> $GITHUB_OUTPUT
+
+          if [ "$PLAN_EXIT" -eq 1 ]; then
+            echo "Terraform plan failed."
+            exit 1
+          fi
+
+      #########################################
+      # 4. APPLY (ONLY if plan = 0)
+      #########################################
+      - name: ✅ Apply Changes (Auto-Approve)
         if: steps.plan.outputs.exit_code == '0'
         working-directory: infra/terraform
         run: |
           set -eo pipefail
-          echo "No drift detected. Applying changes automatically."
+          echo "No drift. Running apply."
           terraform apply -auto-approve tfplan.out

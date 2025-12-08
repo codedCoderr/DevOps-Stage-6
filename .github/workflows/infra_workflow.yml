@@ -14,11 +14,11 @@ jobs:
       TF_VAR_ssh_private_key: ${{ vars.SSH_PRIVATE_KEY_BASE64 }}
 
     steps:
-      # 1. Checkout code
+      # 1. Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup AWS credentials
+      # 2. Setup AWS Credentials
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -26,7 +26,7 @@ jobs:
           aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
-      # 3. Setup Terraform CLI
+      # 3. Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -45,23 +45,31 @@ jobs:
       #########################################
       # 5. STRICT DRIFT DETECTION STAGE
       #########################################
-      - name: Drift Check (Refresh Only)
+      - name: Drift Check (Full Refresh)
         id: drift
         working-directory: infra/terraform
         run: |
           set -eo pipefail
 
-          # Force a full refresh against AWS
-          terraform plan -refresh=true -detailed-exitcode -out=tfplan.out
+          # Force refresh all resources from AWS
+          terraform refresh -input=false
+
+          # Plan against refreshed state
+          terraform plan -detailed-exitcode -out=tfplan.out
           EXIT_CODE=$?
 
           echo "Drift check exit code: $EXIT_CODE"
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
           if [ "$EXIT_CODE" -eq 1 ]; then
-            echo "Terraform refresh-only failed."
+            echo "Terraform plan failed."
             exit 1
+          elif [ "$EXIT_CODE" -eq 2 ]; then
+            echo "Drift detected"
+            exit 2
           fi
+
+          echo "No drift detected"
 
       #########################################
       # 6. DRIFT ALERT
@@ -82,7 +90,6 @@ jobs:
             Manual review is required before applying changes.
             Commit: ${{ github.sha }}
 
-      # Stop the workflow if drift exists
       - name: Stop Run Due to Drift
         if: steps.drift.outputs.exit_code == '2'
         run: |
@@ -111,12 +118,12 @@ jobs:
           fi
 
       #########################################
-      # 8. APPLY (Only if plan = 0)
+      # 8. APPLY (ONLY if plan = 0)
       #########################################
       - name: ✅ Apply Changes (Auto-Approve)
         if: steps.plan.outputs.exit_code == '0'
         working-directory: infra/terraform
         run: |
           set -eo pipefail
-          echo "No drift detected. Applying changes."
+          echo "No drift. Running apply."
           terraform apply -auto-approve tfplan.out

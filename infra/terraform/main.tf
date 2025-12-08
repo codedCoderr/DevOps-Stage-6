@@ -43,8 +43,10 @@ resource "aws_instance" "todo_server" {
   }
 
   lifecycle {
+    # remove ignore_changes completely
   }
 }
+
 
 # 2. Configure Security Groups (Allow HTTP/HTTPS/SSH)
 resource "aws_security_group" "todo_sg" {

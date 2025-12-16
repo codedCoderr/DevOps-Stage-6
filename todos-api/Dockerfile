@@ -14,7 +14,7 @@ RUN npm install --production
 COPY . .
 
 # Expose the port your app listens on
-EXPOSE 8082
+EXPOSE 3000
 
 # Default command to run the server
 CMD ["node", "server.js"]

@@ -10,5 +10,5 @@ RUN CGO_ENABLED=0 go build -o auth-api .
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=build /app/auth-api .
-EXPOSE 8081
+EXPOSE 8080
 CMD ["./auth-api"]

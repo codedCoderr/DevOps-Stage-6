@@ -59,11 +59,11 @@ services:
       - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`)"
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
-      - "traefik.http.services.authapi.loadbalancer.server.port=8081"
+      - "traefik.http.services.authapi.loadbalancer.server.port=8080"
     networks:
       - web
     environment:
-      - AUTH_API_PORT=8081
+      - AUTH_API_PORT=8080
       - JWT_SECRET=myfancysecret
       - USERS_API_ADDRESS=http://users:8083
 
@@ -76,11 +76,13 @@ services:
       - "traefik.http.routers.todos.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/todos`)"
       - "traefik.http.routers.todos.entrypoints=websecure"
       - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
-      - "traefik.http.services.todos.loadbalancer.server.port=8082"
+      - "traefik.http.services.todos.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.todos-stripprefix.stripprefix.prefixes=/todos"
+      - "traefik.http.routers.todos.middlewares=todos-stripprefix@docker"
     networks:
       - web
     environment:
-      - TODO_API_PORT=8082
+      - TODO_API_PORT=3000
       - JWT_SECRET=myfancysecret
       - REDIS_HOST=redis-queue
       - REDIS_PORT=6379

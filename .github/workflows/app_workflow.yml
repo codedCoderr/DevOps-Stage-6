@@ -26,12 +26,13 @@ jobs:
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ vars.SSH_PRIVATE_KEY_BASE64 }}" > ~/.ssh/id_rsa
+          # Decode Base64 private key and set permissions
+          echo "${{ vars.SSH_PRIVATE_KEY_BASE64 }}" | base64 --decode > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
           # Dynamically add hosts from inventory.ini to known_hosts
           INVENTORY_FILE=infra/inventory.ini
-          for host in $(grep -vE '^\[|\s*#' $INVENTORY_FILE | awk '{print $1}'); do
+          grep -vE '^\[|\s*#' "$INVENTORY_FILE" | awk '{print $1}' | while read host; do
             ssh-keyscan -H "$host" >> ~/.ssh/known_hosts || true
           done
 
@@ -39,6 +40,5 @@ jobs:
       - name: Run Ansible Deploy
         working-directory: infra/terraform
         run: |
-          ANSIBLE_HOST_KEY_CHECKING=False \
-          ansible-playbook -i ../inventory.ini ../ansible/deploy.yml \
-          --private-key ~/.ssh/id_rsa
+          export ANSIBLE_HOST_KEY_CHECKING=False
+          ansible-playbook -i ../inventory.ini ../ansible/deploy.yml --private-key ~/.ssh/id_rsa

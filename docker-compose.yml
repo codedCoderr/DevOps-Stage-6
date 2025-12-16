@@ -59,7 +59,7 @@ services:
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/login`)"
+      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`)"
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
       - "traefik.http.services.authapi.loadbalancer.server.port=8081"

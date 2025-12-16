@@ -31,12 +31,11 @@ services:
     container_name: frontend
     labels:
       - "traefik.enable=true"
-      # Serve all frontend paths from root
-      - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
-      # HTTP -> HTTPS redirect
+
       - "traefik.http.routers.frontend-http.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend-http.entrypoints=web"
       - "traefik.http.routers.frontend-http.middlewares=redirect-to-https@docker"
@@ -58,7 +57,7 @@ services:
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/login`)"
+      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`)"
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
       - "traefik.http.services.authapi.loadbalancer.server.port=8081"
@@ -67,7 +66,7 @@ services:
     environment:
       - AUTH_API_PORT=8081
       - JWT_SECRET=myfancysecret
-      - USERS_API_ADDRESS=https://api.codedcoder.accesscam.org
+      - USERS_API_ADDRESS=http://users:8083
 
   # --- Todos API ---
   todos:
@@ -84,11 +83,11 @@ services:
     networks:
       - web
     environment:
+      - TODO_API_PORT=8082
       - JWT_SECRET=myfancysecret
       - REDIS_HOST=redis-queue
       - REDIS_PORT=6379
       - REDIS_CHANNEL=log_channel
-      - TODO_API_PORT=8082
 
   # --- Users API ---
   users:

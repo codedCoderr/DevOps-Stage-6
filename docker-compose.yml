@@ -79,6 +79,13 @@ services:
       - "traefik.http.services.todos.loadbalancer.server.port=3000"
       - "traefik.http.middlewares.todos-stripprefix.stripprefix.prefixes=/todos"
       - "traefik.http.routers.todos.middlewares=todos-stripprefix@docker"
+      # Forward from frontend domain
+      - "traefik.http.routers.frontend-todos.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/todos`)"
+      - "traefik.http.routers.frontend-todos.entrypoints=websecure"
+      - "traefik.http.routers.frontend-todos.tls.certresolver=letsencrypt"
+      - "traefik.http.services.todos-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.frontend-todos-stripprefix.stripprefix.prefixes=/todos"
+      - "traefik.http.routers.frontend-todos.middlewares=frontend-todos-stripprefix@docker"
     networks:
       - web
     environment:
@@ -100,6 +107,13 @@ services:
       - "traefik.http.services.users.loadbalancer.server.port=8083"
       - "traefik.http.middlewares.users-stripprefix.stripprefix.prefixes=/users"
       - "traefik.http.routers.users.middlewares=users-stripprefix@docker"
+      # Forward from frontend domain
+      - "traefik.http.routers.frontend-users.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/users`)"
+      - "traefik.http.routers.frontend-users.entrypoints=websecure"
+      - "traefik.http.routers.frontend-users.tls.certresolver=letsencrypt"
+      - "traefik.http.services.users-frontend.loadbalancer.server.port=8083"
+      - "traefik.http.middlewares.frontend-users-stripprefix.stripprefix.prefixes=/users"
+      - "traefik.http.routers.frontend-users.middlewares=frontend-users-stripprefix@docker"
     networks:
       - web
     environment:

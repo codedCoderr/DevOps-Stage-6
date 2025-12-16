@@ -57,17 +57,18 @@ services:
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`)"
+      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/login`)"
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
       - "traefik.http.services.authapi.loadbalancer.server.port=8081"
+      - "traefik.http.middlewares.authapi-stripprefix.stripprefix.prefixes=/login"
+      - "traefik.http.routers.authapi.middlewares=authapi-stripprefix@docker"
     networks:
       - web
     environment:
       - AUTH_API_PORT=8081
       - JWT_SECRET=myfancysecret
       - USERS_API_ADDRESS=https://api.codedcoder.accesscam.org
-      - USERS_API_TOKEN=my-internal-service-token # <-- new token
 
   # --- Todos API ---
   todos:
@@ -107,7 +108,6 @@ services:
     environment:
       - SERVER_PORT=8083
       - JWT_SECRET=myfancysecret
-      - INTERNAL_SERVICE_TOKEN=my-internal-service-token # <-- for validation in Users API
 
   # --- Redis ---
   redis:

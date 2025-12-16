@@ -1,4 +1,5 @@
 name: 🚀 Application Deployment
+
 on:
   push:
     branches: [main]
@@ -13,17 +14,31 @@ on:
 jobs:
   deploy_app:
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-app
+      cancel-in-progress: true
+
     steps:
       # 1. Checkout code
       - uses: actions/checkout@v3
 
-      # 2. **Ensure server exists/is up (Prerequisite check)**
-      # This step would typically use a tool/script to check the EC2 instance state
-      # For a simple example, assume the infrastructure is already running.
-      # 3. Run the Ansible deploy role
-      - name: Run Ansible Deploy Playbook
-        # You must have SSH access to the provisioned server from the runner
+      # 2. Setup SSH key for Ansible
+      - name: Setup SSH Key
         run: |
-          cd infra/terraform
-          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ../inventory.ini ../ansible/deploy.yml
-        # Note: This requires the inventory file to exist and SSH keys to be set up.
+          mkdir -p ~/.ssh
+          echo "${{ vars.SSH_PRIVATE_KEY_BASE64 }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Dynamically add hosts from inventory.ini to known_hosts
+          INVENTORY_FILE=infra/inventory.ini
+          for host in $(grep -vE '^\[|\s*#' $INVENTORY_FILE | awk '{print $1}'); do
+            ssh-keyscan -H "$host" >> ~/.ssh/known_hosts || true
+          done
+
+      # 3. Run Ansible Deploy Playbook
+      - name: Run Ansible Deploy
+        working-directory: infra/terraform
+        run: |
+          ANSIBLE_HOST_KEY_CHECKING=False \
+          ansible-playbook -i ../inventory.ini ../ansible/deploy.yml \
+          --private-key ~/.ssh/id_rsa

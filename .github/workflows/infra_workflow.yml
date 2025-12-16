@@ -3,10 +3,9 @@ name: ⚠️ Drift Detection
 on:
   push:
     branches: [main]
-    #paths:
-    # Trigger only if changes occur in the infrastructure directories
-    #- "infra/terraform/**"
-    #- "infra/ansible/**"
+    paths:
+      - "infra/terraform/**"
+      - "infra/ansible/**"
 
 jobs:
   detect_drift:
@@ -28,6 +27,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Decode SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${TF_VAR_ssh_private_key}" | base64 --decode > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
       - name: Terraform Init
         working-directory: infra/terraform
         run: |
@@ -41,29 +46,13 @@ jobs:
         id: drift
         working-directory: infra/terraform
         run: |
-          # Use 'set +e' to explicitly prevent the script from exiting when plan returns 2
           set +e
-
-          echo "Starting terraform refresh..."
           terraform refresh -input=false
-
-          echo "Starting terraform plan..."
-
-          # Run plan and immediately capture the exit code
           terraform plan -detailed-exitcode -out=tfplan.out
-          EXIT_CODE=$?
-
-          # Log the exit code for visibility
-          echo "Terraform Plan Exit Code: $EXIT_CODE" 
-
-          # Output the exit code for use in subsequent 'if' conditionals
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-          # Re-enable exit-on-error for general script safety
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
           set -e
 
       - name: ✉️ Drift Alert
-        # Triggers if plan returns exit code 2 (drift)
         if: steps.drift.outputs.exit_code == '2'
         uses: dawidd6/action-send-mail@v3
         with:
@@ -80,6 +69,5 @@ jobs:
             Commit: ${{ github.sha }}
 
       - name: Stop Run Due to Drift
-        # Fail the job if drift is detected (exit code 2)
         if: steps.drift.outputs.exit_code == '2'
         run: exit 2

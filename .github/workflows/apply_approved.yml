@@ -23,6 +23,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Decode SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${TF_VAR_ssh_private_key}" | base64 --decode > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
       - name: Terraform Init
         working-directory: infra/terraform
         run: |
@@ -32,8 +38,10 @@ jobs:
             -backend-config="region=us-east-2" \
             -reconfigure
 
+      - name: Terraform Plan (Safe Preview)
+        working-directory: infra/terraform
+        run: terraform plan -out=tfplan.out
+
       - name: Terraform Apply
         working-directory: infra/terraform
-        run: |
-          set -eo pipefail
-          terraform apply -auto-approve
+        run: terraform apply tfplan.out

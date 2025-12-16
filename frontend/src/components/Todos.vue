@@ -99,7 +99,7 @@ export default {
     loadTasks() {
       this.isProcessing = true;
       this.errorMessage = "";
-      this.$http.get(`${process.env.TODOS_API_ADDRESS}/todos`).then(
+      this.$http.get(`${process.env.VUE_APP_TODOS_API_ADDRESS}/todos`).then(
         (response) => {
           for (var i in response.body) {
             this.tasks.push(response.body[i]);
@@ -120,18 +120,20 @@ export default {
         var task = {
           content: this.newTask,
         };
-        this.$http.post(`${process.env.TODOS_API_ADDRESS}/todos`, task).then(
-          (response) => {
-            this.newTask = "";
-            this.isProcessing = false;
-            this.tasks.push(task);
-          },
-          (error) => {
-            this.isProcessing = false;
-            this.errorMessage =
-              JSON.stringify(error.body) + ". Response code: " + error.status;
-          }
-        );
+        this.$http
+          .post(`${process.env.VUE_APP_TODOS_API_ADDRESS}/todos`, task)
+          .then(
+            (response) => {
+              this.newTask = "";
+              this.isProcessing = false;
+              this.tasks.push(task);
+            },
+            (error) => {
+              this.isProcessing = false;
+              this.errorMessage =
+                JSON.stringify(error.body) + ". Response code: " + error.status;
+            }
+          );
       }
     },
     removeTask(index) {
@@ -139,7 +141,7 @@ export default {
       this.isProcessing = true;
       this.errorMessage = "";
       this.$http
-        .delete(`${process.env.TODOS_API_ADDRESS}/todos/${item.id}`)
+        .delete(`${process.env.VUE_APP_TODOS_API_ADDRESS}/todos/${item.id}`)
         .then(
           (response) => {
             this.isProcessing = false;

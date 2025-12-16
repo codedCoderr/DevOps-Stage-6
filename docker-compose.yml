@@ -35,7 +35,6 @@ services:
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
-
       - "traefik.http.routers.frontend-http.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend-http.entrypoints=web"
       - "traefik.http.routers.frontend-http.middlewares=redirect-to-https@docker"
@@ -78,8 +77,6 @@ services:
       - "traefik.http.routers.todos.entrypoints=websecure"
       - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
       - "traefik.http.services.todos.loadbalancer.server.port=8082"
-      - "traefik.http.middlewares.todos-stripprefix.stripprefix.prefixes=/todos"
-      - "traefik.http.routers.todos.middlewares=todos-stripprefix@docker"
     networks:
       - web
     environment:

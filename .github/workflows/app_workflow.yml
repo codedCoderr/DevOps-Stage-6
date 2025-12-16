@@ -40,6 +40,10 @@ jobs:
       # 3. Run Ansible Deploy Playbook
       - name: Run Ansible Deploy
         working-directory: infra/terraform
+        env:
+          AUTH_API_ADDRESS: ${{ vars.AUTH_API_ADDRESS }}
+          TODOS_API_ADDRESS: ${{ vars.TODOS_API_ADDRESS }}
+          USERS_API_ADDRESS: ${{ vars.USERS_API_ADDRESS }}
         run: |
           export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i ../inventory.ini ../ansible/deploy.yml --private-key ~/.ssh/id_rsa

@@ -31,14 +31,15 @@ services:
     container_name: frontend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`)"
+      # Serve all frontend paths from root
+      - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`) && PathPrefix(`/`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.frontend.priority=10"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      # HTTP -> HTTPS redirect
       - "traefik.http.routers.frontend-http.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend-http.entrypoints=web"
       - "traefik.http.routers.frontend-http.middlewares=redirect-to-https@docker"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
     networks:
       - web
     depends_on:
@@ -61,8 +62,6 @@ services:
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
       - "traefik.http.services.authapi.loadbalancer.server.port=8081"
-      - "traefik.http.middlewares.authapi-stripprefix.stripprefix.prefixes=/login"
-      - "traefik.http.routers.authapi.middlewares=authapi-stripprefix@docker"
     networks:
       - web
     environment:

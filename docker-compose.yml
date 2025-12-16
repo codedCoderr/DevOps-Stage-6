@@ -29,7 +29,7 @@ services:
     container_name: frontend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`codedcoder.name.ng`)"
+      - "traefik.http.routers.frontend.rule=Host(`codedcoder.accesscam.org`)"
       - "traefik.http.routers.frontend.entrypoints=web,websecure"
       - "traefik.http.routers.frontend.priority=1"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
@@ -45,9 +45,9 @@ services:
       - todos
     environment:
       - PORT=80
-      - AUTH_API_ADDRESS=https://api.codedcoder.name.ng
-      - TODOS_API_ADDRESS=https://api.codedcoder.name.ng
-      - USERS_API_ADDRESS=https://api.codedcoder.name.ng
+      - AUTH_API_ADDRESS=https://api.codedcoder.accesscam.org
+      - TODOS_API_ADDRESS=https://api.codedcoder.accesscam.org
+      - USERS_API_ADDRESS=https://api.codedcoder.accesscam.org
 
   # --- Auth API ---
   auth:
@@ -55,7 +55,7 @@ services:
     container_name: auth-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.name.ng`) && PathPrefix(`/login`)"
+      - "traefik.http.routers.authapi.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/login`)"
       - "traefik.http.routers.authapi.entrypoints=websecure"
       - "traefik.http.routers.authapi.tls.certresolver=letsencrypt"
       - "traefik.http.services.authapi.loadbalancer.server.port=8081"
@@ -64,7 +64,7 @@ services:
     environment:
       - AUTH_API_PORT=8081
       - JWT_SECRET=myfancysecret
-      - USERS_API_ADDRESS=https://api.codedcoder.name.ng
+      - USERS_API_ADDRESS=https://api.codedcoder.accesscam.org
 
   # --- Todos API ---
   todos:
@@ -72,7 +72,7 @@ services:
     container_name: todos-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.todos.rule=Host(`api.codedcoder.name.ng`) && PathPrefix(`/todos`)"
+      - "traefik.http.routers.todos.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/todos`)"
       - "traefik.http.routers.todos.entrypoints=websecure"
       - "traefik.http.routers.todos.tls.certresolver=letsencrypt"
       - "traefik.http.services.todos.loadbalancer.server.port=8082"
@@ -93,7 +93,7 @@ services:
     container_name: users-api
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.users.rule=Host(`api.codedcoder.name.ng`) && PathPrefix(`/users`)"
+      - "traefik.http.routers.users.rule=Host(`api.codedcoder.accesscam.org`) && PathPrefix(`/users`)"
       - "traefik.http.routers.users.entrypoints=websecure"
       - "traefik.http.routers.users.tls.certresolver=letsencrypt"
       - "traefik.http.services.users.loadbalancer.server.port=8083"
